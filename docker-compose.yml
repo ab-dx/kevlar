@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: kevlar-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - kevlar-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: kevlar-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - kevlar-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: kevlar-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000" 
+      - "9001:9001" 
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: adminpassword
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - kevlar-network
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: kevlar-minio-setup
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 admin adminpassword;
+      /usr/bin/mc mb myminio/kevlar-storage --ignore-existing;
+      /usr/bin/mc anonymous set download myminio/kevlar-storage;
+      exit 0;
+      "
+    networks:
+      - kevlar-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  kevlar-network:
+    driver: bridge
