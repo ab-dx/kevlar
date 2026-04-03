@@ -1,23 +1,29 @@
-import { Controller, Post, Body, Headers } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
 import { AssetService } from './asset.service';
+import { ClerkAuthGuard } from '../../common/guards/clerk-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('api/v1/assets')
+@UseGuards(ClerkAuthGuard, RolesGuard) 
 export class AssetController {
   constructor(private readonly assetService: AssetService) {}
 
   @Post('upload/init')
+  @Roles('org:admin', 'org:creator') 
   async initUpload(
-    @Headers('x-tenant-id') tenantId: string,
+    @Req() req: any, 
     @Body() body: { filename: string; mimeType: string }
   ) {
-    return this.assetService.initUpload(tenantId, body.filename, body.mimeType);
+    return this.assetService.initUpload(req.user.tenantId, body.filename, body.mimeType);
   }
 
   @Post('upload/complete')
+  @Roles('org:admin', 'org:creator')
   async completeUpload(
-    @Headers('x-tenant-id') tenantId: string,
+    @Req() req: any,
     @Body() body: { originalFilename: string; minioObjectKey: string; mimeType: string; sizeBytes: number; assetType: string }
   ) {
-    return this.assetService.completeUpload(tenantId, body);
+    return this.assetService.completeUpload(req.user.tenantId, body);
   }
 }
