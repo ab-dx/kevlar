@@ -14,6 +14,7 @@ import { APP_INTERCEPTOR } from "@nestjs/core";
 import { MongooseModule } from "@nestjs/mongoose";
 import { BullModule } from "@nestjs/bullmq";
 import { EventsModule } from "./modules/events/events.module";
+import { AuditModule } from "./modules/audit/audit.module";
 
 @Module({
 	imports: [
@@ -41,6 +42,7 @@ import { EventsModule } from "./modules/events/events.module";
 			}),
 			inject: [ConfigService],
 		}),
+		AuditModule,
 		EventsModule,
 		DatabaseModule,
 		StorageModule,

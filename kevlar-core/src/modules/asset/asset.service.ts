@@ -5,6 +5,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Asset, AssetStatus } from './schemas/asset.schema';
 import { MinioService } from '../../core/storage/minio.service';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '../audit/schemas/audit-log.schema';
 
 @Injectable()
 export class AssetService {
@@ -12,6 +14,7 @@ export class AssetService {
     @InjectModel(Asset.name) private assetModel: Model<Asset>,
     private minioService: MinioService,
     @InjectQueue('asset-processing') private assetQueue: Queue,
+    private auditService: AuditService
   ) {}
 
   async initUpload(tenantId: string, filename: string, mimeType: string) {
@@ -32,6 +35,13 @@ export class AssetService {
 
     const savedAsset = await newAsset.save();
 
+    await this.auditService.logEvent(
+      tenantId,
+      savedAsset._id,
+      'user-123', // TODO: change mock user
+      AuditAction.ASSET_CREATED,
+      { filename: dto.originalFilename, size: dto.sizeBytes }
+    );
     await this.assetQueue.add('process.media', { 
       assetId: savedAsset._id, 
       tenantId 
