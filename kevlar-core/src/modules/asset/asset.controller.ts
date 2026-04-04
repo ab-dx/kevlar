@@ -15,7 +15,7 @@ export class AssetController {
     @Req() req: any, 
     @Body() body: { filename: string; mimeType: string }
   ) {
-    return this.assetService.initUpload(req.user.tenantId, req.user.id, body.filename, body.mimeType);
+    return this.assetService.initUpload(req.user.tenantId, body.filename, body.mimeType);
   }
 
   @Post('upload/complete')
@@ -24,6 +24,6 @@ export class AssetController {
     @Req() req: any,
     @Body() body: { originalFilename: string; minioObjectKey: string; mimeType: string; sizeBytes: number; assetType: string }
   ) {
-    return this.assetService.completeUpload(req.user.tenantId, body);
+    return this.assetService.completeUpload(req.user.tenantId, req.user.id, body);
   }
 }
