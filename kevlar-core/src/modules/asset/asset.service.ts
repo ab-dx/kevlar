@@ -25,6 +25,7 @@ export class AssetService {
 
   async completeUpload(
     tenantId: string, 
+    userId: string,
     dto: { originalFilename: string; minioObjectKey: string; mimeType: string; sizeBytes: number; assetType: string }
   ) {
     const newAsset = new this.assetModel({
@@ -38,7 +39,7 @@ export class AssetService {
     await this.auditService.logEvent(
       tenantId,
       savedAsset._id,
-      'user-123', // TODO: change mock user
+      userId,
       AuditAction.ASSET_CREATED,
       { filename: dto.originalFilename, size: dto.sizeBytes }
     );

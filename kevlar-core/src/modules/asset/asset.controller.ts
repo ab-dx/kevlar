@@ -15,7 +15,7 @@ export class AssetController {
     @Req() req: any, 
     @Body() body: { filename: string; mimeType: string }
   ) {
-    return this.assetService.initUpload(req.user.tenantId, body.filename, body.mimeType);
+    return this.assetService.initUpload(req.user.tenantId, req.user.id, body.filename, body.mimeType);
   }
 
   @Post('upload/complete')
