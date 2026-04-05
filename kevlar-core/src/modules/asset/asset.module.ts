@@ -1,37 +1,31 @@
 import { Module } from "@nestjs/common";
 import { MongooseModule } from "@nestjs/mongoose";
 import { BullModule } from "@nestjs/bullmq";
-import { Asset, AssetSchema } from "./schemas/asset.schema";
-import {
-	VideoAssetSchema,
-	AudioAssetSchema,
-	ImageAssetSchema,
-} from "./schemas/discriminators.schema";
 import { AssetService } from "./asset.service";
 import { AssetController } from "./asset.controller";
 import { StorageModule } from "../../core/storage/storage.module";
 import { AssetProcessor } from "./asset.processor";
+import { WorkflowService } from "./workflow.service";
+import { AssetFamily, AssetFamilySchema } from "./schemas/asset-family.schema";
+import {
+	AssetVersion,
+	AssetVersionSchema,
+} from "./schemas/asset-version.schema";
+import { AssetGateway } from "./asset.gateway";
 
 @Module({
 	imports: [
 		MongooseModule.forFeature([
-			{
-				name: Asset.name,
-				schema: AssetSchema,
-				discriminators: [
-					{ name: "VideoAsset", schema: VideoAssetSchema },
-					{ name: "AudioAsset", schema: AudioAssetSchema },
-					{ name: "ImageAsset", schema: ImageAssetSchema },
-				],
-			},
+			{ name: AssetFamily.name, schema: AssetFamilySchema },
+			{ name: AssetVersion.name, schema: AssetVersionSchema },
 		]),
 		BullModule.registerQueue({
 			name: "asset-processing",
 		}),
 		StorageModule,
 	],
-	providers: [AssetService, AssetProcessor],
+	providers: [AssetService, WorkflowService, AssetProcessor, AssetGateway],
 	controllers: [AssetController],
-	exports: [MongooseModule, AssetService],
+	exports: [MongooseModule, AssetService, WorkflowService, MongooseModule],
 })
 export class AssetModule {}

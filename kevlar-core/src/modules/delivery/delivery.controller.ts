@@ -15,11 +15,11 @@ export class DeliveryController {
   @Roles('org:admin', 'org:creator')
   async createShareLink(
     @Req() req: any,
-    @Body() body: { assetId: string; expiresInHours?: number }
+    @Body() body: { familyId: string; expiresInHours?: number }
   ) {
     return this.deliveryService.generateSecureLink(
       req.user.tenantId,
-      body.assetId,
+      body.familyId,
       req.user.id,
       body.expiresInHours
     );

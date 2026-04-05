@@ -3,10 +3,12 @@ import { Document, Schema as MongooseSchema, Types } from "mongoose";
 
 export enum AuditAction {
 	ASSET_CREATED = "Asset_Created",
+	ASSET_UPDATED = "ASSET_UPDATED",
 	STATE_CHANGED = "State_Changed",
 	TAGS_UPDATED = "Tags_Updated",
 	SECURE_LINK_GENERATED = "Secure_Link_Generated",
 	ASSET_DOWNLOADED = "Asset_Downloaded",
+	WORKFLOW_STATE_CHANGED = "WORKFLOW_STATE_CHANGED",
 }
 
 // updatedAt is disabled because logs must be immutable
