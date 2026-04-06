@@ -1,34 +1,37 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Model } from 'mongoose';
 import { AuditLog, AuditAction } from './schemas/audit-log.schema';
 
 @Injectable()
 export class AuditService {
-  constructor(@InjectModel(AuditLog.name) private auditLogModel: Model<AuditLog>) {}
+  constructor(
+    @InjectModel(AuditLog.name) private auditLogModel: Model<AuditLog>,
+  ) {}
 
   async logEvent(
     tenantId: string,
-    assetId: Types.ObjectId | string,
+    assetFamilyId: string,
     actorId: string,
     action: AuditAction,
-    details?: Record<string, any>
+    metadata: Record<string, any> = {},
   ) {
-    const newLog = new this.auditLogModel({
+    const log = new this.auditLogModel({
       tenantId,
-      assetId: new Types.ObjectId(assetId),
+      assetFamilyId,
       actorId,
       action,
-      details: details || {},
+      metadata,
     });
-
-    await newLog.save();
-    console.log(`[Audit] Recorded ${action} for Asset ${assetId}`);
+    return log.save();
   }
 
-  async getTimelineForAsset(assetId: string) {
+  async getTimelineForAsset(tenantId: string, familyId: string) {
     return this.auditLogModel
-      .find({ assetId: new Types.ObjectId(assetId) })
+      .find({ 
+        tenantId, 
+        assetFamilyId: familyId 
+      })
       .sort({ createdAt: -1 }) 
       .exec();
   }

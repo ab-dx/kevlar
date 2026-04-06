@@ -21,7 +21,7 @@ export class AuditLog extends Document {
 	tenantId: string;
 
 	@Prop({ type: MongooseSchema.Types.ObjectId, required: true, index: true })
-	assetId: Types.ObjectId;
+	assetFamilyId: Types.ObjectId;
 
 	@Prop({ type: String, required: true })
 	actorId: string;
