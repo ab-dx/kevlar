@@ -58,12 +58,19 @@ export class MinioService implements OnModuleInit {
 		try {
 			const objectKey = `${tenantId}/${uuidv4()}-${filename}`;
 
-			const uploadUrl = await this.minioClient.presignedPutObject(
+			let uploadUrl = await this.minioClient.presignedPutObject(
 				this.bucketName,
 				objectKey,
 				3600,
 			);
 
+			// to relay browser to correct host
+			console.log(uploadUrl);
+			uploadUrl = uploadUrl.replace(
+				process.env.MINIO_ENDPOINT || "minio",
+				process.env.MINIO_EXTERNAL_ENDPOINT || "localhost",
+			);
+			console.log(uploadUrl);
 			return { uploadUrl, objectKey };
 		} catch (error) {
 			console.error("MinIO Upload URL Generation Failed:", error);
