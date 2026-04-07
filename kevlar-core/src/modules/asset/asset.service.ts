@@ -33,12 +33,15 @@ export class AssetService {
       minioObjectKey: string; 
       mimeType: string; 
       sizeBytes: number; 
+      title?: string;
+      tags?: string[];
     }
   ) {
     let familyId = dto.familyId;
     let nextVersionNumber = 1;
     let familyDocument: any;
-
+    const finalTitle = dto.title?.trim() ? dto.title.trim() : dto.originalFilename;
+    const finalTags = dto.tags && Array.isArray(dto.tags) ? dto.tags : [];
     if (familyId) {
       familyDocument = await this.familyModel.findOne({ _id: familyId, tenantId });
       if (!familyDocument) throw new NotFoundException('Asset Family not found');
@@ -53,7 +56,10 @@ export class AssetService {
     else {
       const newFamily = new this.familyModel({
         tenantId,
-        title: dto.originalFilename,
+        title: finalTitle,
+        tags: finalTags,
+        status: 'DRAFT', 
+        nextVersionNumber: 2,
         createdBy: actorId,
       });
       familyDocument = await newFamily.save();
@@ -157,6 +163,19 @@ export class AssetService {
       ...family,
       versions, 
     };
+  }
+
+  async deleteFamily(tenantId: string, familyId: string, actorId: string) {
+    const family = await this.familyModel.findOne({ _id: familyId, tenantId });
+    if (!family) {
+      throw new NotFoundException(`Asset Family ${familyId} not found.`);
+    }
+
+    await this.versionModel.deleteMany({ familyId, tenantId });
+
+    await this.familyModel.deleteOne({ _id: familyId, tenantId });
+
+    return { success: true, message: 'Asset family and all versions deleted successfully.' };
   }
 
 }

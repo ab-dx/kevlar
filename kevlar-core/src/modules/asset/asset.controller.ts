@@ -1,4 +1,4 @@
-import { Controller, Post, Param, Body, UseGuards, Get, Query, Req } from '@nestjs/common';
+import { Controller, Post, Param, Body, UseGuards, Get, Query, Req, Delete } from '@nestjs/common';
 import { AssetService } from './asset.service';
 import { ClerkAuthGuard } from '../../common/guards/clerk-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -24,7 +24,10 @@ export class AssetController {
   @Roles('org:admin', 'org:creator')
   async completeUpload(
     @Req() req: any,
-    @Body() body: { originalFilename: string; minioObjectKey: string; mimeType: string; sizeBytes: number; assetType: string }
+    @Body() body: { originalFilename: string; minioObjectKey: string; mimeType: string; sizeBytes: number; assetType: string;
+    title?: string; 
+    tags?: string[];
+    }
   ) {
     return this.assetService.completeUpload(req.user.tenantId, req.user.id, body);
   }
@@ -67,5 +70,14 @@ export class AssetController {
     @Param('id') familyId: string
   ) {
     return this.assetService.findOneFamily(req.user.tenantId, familyId);
+  }
+
+  @Delete(':id')
+  @Roles('org:admin', 'org:manager') 
+  async deleteAssetFamily(
+    @Req() req: any,
+    @Param('id') familyId: string
+  ) {
+    return this.assetService.deleteFamily(req.user.tenantId, familyId, req.user.id);
   }
 }

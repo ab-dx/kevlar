@@ -21,6 +21,9 @@ export class AssetFamily extends Document {
 
 	@Prop({ required: true })
 	createdBy: string;
+
+	@Prop({ type: [String], default: [] })
+	tags: string[];
 }
 
 export const AssetFamilySchema = SchemaFactory.createForClass(AssetFamily);
