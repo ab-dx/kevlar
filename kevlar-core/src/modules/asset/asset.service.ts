@@ -28,7 +28,7 @@ export class AssetService {
     tenantId: string,
     userId: string,
     dto: { 
-      familyId?: string; // Optional: If provided, this is a v2+ upload
+      familyId?: string; 
       originalFilename: string; 
       minioObjectKey: string; 
       mimeType: string; 
@@ -39,31 +39,27 @@ export class AssetService {
     let nextVersionNumber = 1;
     let familyDocument: any;
 
-    // --- SCENARIO A: Uploading a new version to an existing project ---
     if (familyId) {
       familyDocument = await this.familyModel.findOne({ _id: familyId, tenantId });
       if (!familyDocument) throw new NotFoundException('Asset Family not found');
 
-      // Find the highest existing version number to increment it
       const latestVersion = await this.versionModel
         .findOne({ familyId })
-        .sort({ versionNumber: -1 }) // Sort descending
+        .sort({ versionNumber: -1 }) 
         .exec();
         
       nextVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
     } 
-    // --- SCENARIO B: Brand new upload (Create the Family) ---
     else {
       const newFamily = new this.familyModel({
         tenantId,
-        title: dto.originalFilename, // Default title to filename
+        title: dto.originalFilename,
         createdBy: userId,
       });
       familyDocument = await newFamily.save();
       familyId = familyDocument._id as string;
     }
 
-    // --- CREATE THE IMMUTABLE VERSION ---
     const newVersion = new this.versionModel({
       familyId,
       tenantId,
@@ -73,22 +69,20 @@ export class AssetService {
       mimeType: dto.mimeType,
       sizeBytes: dto.sizeBytes,
       uploadedBy: userId,
-      metadata: {}, // Format-specific data will go here later
+      metadata: {}, 
     });
 
     const savedVersion = await newVersion.save();
 
-    // If this is the very first version, automatically set it as the active one
     if (nextVersionNumber === 1) {
       familyDocument.activeVersionId = savedVersion._id;
       await familyDocument.save();
     }
 
-    // --- AUDIT & ASYNC PROCESSING ---
     await this.auditService.logEvent(
       tenantId,
       familyId,
-      userId,
+      actorId,
       nextVersionNumber === 1 ? AuditAction.ASSET_CREATED : AuditAction.ASSET_UPDATED,
       { versionNumber: nextVersionNumber, size: dto.sizeBytes }
     );
