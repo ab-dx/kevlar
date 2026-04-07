@@ -26,7 +26,7 @@ export class AssetService {
 
   async completeUpload(
     tenantId: string,
-    userId: string,
+    actorId: string,
     dto: { 
       familyId?: string; 
       originalFilename: string; 
@@ -54,7 +54,7 @@ export class AssetService {
       const newFamily = new this.familyModel({
         tenantId,
         title: dto.originalFilename,
-        createdBy: userId,
+        createdBy: actorId,
       });
       familyDocument = await newFamily.save();
       familyId = familyDocument._id as string;
@@ -68,7 +68,7 @@ export class AssetService {
       originalFilename: dto.originalFilename,
       mimeType: dto.mimeType,
       sizeBytes: dto.sizeBytes,
-      uploadedBy: userId,
+      uploadedBy: actorId,
       metadata: {}, 
     });
 
