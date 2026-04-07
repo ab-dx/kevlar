@@ -35,4 +35,12 @@ export class AuditService {
       .sort({ createdAt: -1 }) 
       .exec();
   }
+
+  async getTenantLogs(tenantId: string) {
+    return this.auditLogModel
+      .find({ tenantId })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .exec();
+  }
 }

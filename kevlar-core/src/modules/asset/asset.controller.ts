@@ -1,15 +1,22 @@
-import { Controller, Post, Param, Body, UseGuards, Get, Query, Req, Delete } from '@nestjs/common';
+import { Controller, Patch, Post, Param, Body, UseGuards, Get, Query, Req, Delete } from '@nestjs/common';
 import { AssetService } from './asset.service';
 import { ClerkAuthGuard } from '../../common/guards/clerk-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { WorkflowService } from './workflow.service'
+import { AssetStatus } from './enums/asset-status.enum'
 
 @Controller('api/v1/assets')
 @UseGuards(ClerkAuthGuard, RolesGuard) 
 export class AssetController {
   constructor(private readonly assetService: AssetService,
              private readonly workflowService: WorkflowService) {}
+
+  @Get('stats/overview')
+  @Roles('org:admin', 'org:manager', 'org:creator')
+  async getOverviewStats(@Req() req: any) {
+    return this.assetService.getStats(req.user.tenantId);
+  }
 
   @Post('upload/init')
   @Roles('org:admin', 'org:creator') 
@@ -57,10 +64,12 @@ export class AssetController {
     @Req() req: any,
     @Query('q') q?: string,
     @Query('status') status?: string,
+    @Query('tags') tags?: string,
+    @Query('type') type?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.assetService.findAll(req.user.tenantId, { q, status, page, limit });
+    return this.assetService.findAll(req.user.tenantId, { q, status, tags, type, page, limit });
   }
 
   @Get(':id')
@@ -79,5 +88,55 @@ export class AssetController {
     @Param('id') familyId: string
   ) {
     return this.assetService.deleteFamily(req.user.tenantId, familyId, req.user.id);
+  }
+
+  @Post(':id/versions/complete')
+  @Roles('org:admin', 'org:creator')
+  async completeVersionUpload(
+    @Req() req: any,
+    @Param('id') familyId: string,
+    @Body() body: { 
+      originalFilename: string; 
+      minioObjectKey: string; 
+      mimeType: string; 
+      sizeBytes: number; 
+      assetType: string 
+    }
+  ) {
+    return this.assetService.completeUpload(req.user.tenantId, req.user.id, {
+      ...body,
+      familyId, 
+    });
+  }
+
+  @Patch(':id/status')
+  @Roles('org:admin', 'org:manager')
+  async updateStatus(
+    @Req() req: any,
+    @Param('id') familyId: string,
+    @Body() body: { status: AssetStatus; notes?: string }
+  ) {
+    return this.workflowService.transitionState(
+      req.user.tenantId,
+      familyId,
+      req.user.id,
+      body.status,
+      body.notes
+    );
+  }
+
+  @Patch(':id/metadata')
+  @Roles('org:admin', 'org:manager', 'org:creator')
+  async updateMetadata(
+    @Req() req: any,
+    @Param('id') familyId: string,
+    @Body() body: { title?: string; tags?: string[]; customMetadata?: Record<string, any> }
+  ) {
+    return this.assetService.updateMetadata(
+      req.user.tenantId, 
+      familyId, 
+      req.user.id, 
+      body
+    );
   }
 }

@@ -17,4 +17,11 @@ export class AuditController {
   ) {
     return this.auditService.getTimelineForAsset(req.user.tenantId, familyId);
   }
+
+  @Get()
+  @Roles('org:admin', 'org:manager') 
+  async getAllLogs(@Req() req: any) {
+    const logs = await this.auditService.getTenantLogs(req.user.tenantId);
+    return { data: logs }; 
+  }
 }

@@ -19,11 +19,17 @@ export class AssetFamily extends Document {
 	@Prop({ type: MongooseSchema.Types.ObjectId, ref: "AssetVersion" })
 	activeVersionId?: string;
 
+	@Prop({ type: Number, default: 1 })
+	nextVersionNumber: number;
+
 	@Prop({ required: true })
 	createdBy: string;
 
 	@Prop({ type: [String], default: [] })
 	tags: string[];
+
+	@Prop({ type: MongooseSchema.Types.Mixed, default: {} })
+	customMetadata: Record<string, any>;
 }
 
 export const AssetFamilySchema = SchemaFactory.createForClass(AssetFamily);

@@ -507,7 +507,6 @@ function AssetGrid() {
 												>
 													View Details
 												</DropdownMenuItem>
-												<DropdownMenuItem>Edit Tags</DropdownMenuItem>
 												<DropdownMenuItem
 													onClick={() => handleDownload(family._id)}
 												>

@@ -37,7 +37,7 @@ export function Header() {
 					<span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-background"></span>
 				</button>
 				<div className="h-6 w-[1px] bg-border mx-2"></div>
-				<UserButton afterSignOutUrl="/" />
+				<UserButton afterSignOutUrl="/sign-in" />
 			</div>
 		</header>
 	);

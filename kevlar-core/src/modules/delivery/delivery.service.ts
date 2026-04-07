@@ -8,6 +8,7 @@ import { MinioService } from '../../core/storage/minio.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/schemas/audit-log.schema';
 import { tenantContext } from '../../core/context/tenant.context';
+import { Delivery } from './schemas/delivery.schema';
 
 @Injectable()
 export class DeliveryService {
@@ -15,6 +16,7 @@ export class DeliveryService {
     private jwtService: JwtService,
     @InjectModel(AssetFamily.name) private familyModel: Model<AssetFamily>,
     @InjectModel(AssetVersion.name) private versionModel: Model<AssetVersion>,
+    @InjectModel(Delivery.name) private deliveryModel: Model<Delivery>,
     private minioService: MinioService,
     private auditService: AuditService
   ) {}
@@ -26,6 +28,20 @@ export class DeliveryService {
 
     const payload = { sub: familyId, vid: family.activeVersionId, tid: tenantId };
     const token = this.jwtService.sign(payload, { expiresIn: `${expiresInHours}h` });
+
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + expiresInHours);
+
+    const deliveryRecord = new this.deliveryModel({
+      tenantId,
+      familyId: family._id,
+      versionId: family.activeVersionId,
+      token,
+      expiresAt,
+      createdBy: actorId,
+      isActive: true
+    });
+    await deliveryRecord.save();
 
     await this.auditService.logEvent(
       tenantId,
@@ -73,5 +89,17 @@ export class DeliveryService {
       }
       throw new UnauthorizedException('Invalid secure link.');
     }
+  }
+
+  async findAllActive(tenantId: string) {
+    return this.deliveryModel
+      .find({ 
+        tenantId, 
+        isActive: true, 
+        expiresAt: { $gt: new Date() } 
+      })
+      .populate('familyId', 'title') 
+      .sort({ createdAt: -1 })
+      .exec();
   }
 }

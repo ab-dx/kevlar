@@ -8,6 +8,7 @@ import { AssetVersion } from './schemas/asset-version.schema';
 import { MinioService } from '../../core/storage/minio.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/schemas/audit-log.schema';
+import { AssetStatus } from './enums/asset-status.enum';
 
 @Injectable()
 export class AssetService {
@@ -33,68 +34,65 @@ export class AssetService {
       minioObjectKey: string; 
       mimeType: string; 
       sizeBytes: number; 
+      assetType?: string;
       title?: string;
       tags?: string[];
     }
   ) {
-    let familyId = dto.familyId;
-    let nextVersionNumber = 1;
-    let familyDocument: any;
-    const finalTitle = dto.title?.trim() ? dto.title.trim() : dto.originalFilename;
-    const finalTags = dto.tags && Array.isArray(dto.tags) ? dto.tags : [];
-    if (familyId) {
-      familyDocument = await this.familyModel.findOne({ _id: familyId, tenantId });
+    let familyDocument: AssetFamily | null = null;
+    let versionNumber: number;
+
+    const finalTitle = dto.title?.trim() || dto.originalFilename;
+    const finalTags = Array.isArray(dto.tags) ? dto.tags : [];
+
+    if (dto.familyId) {
+      familyDocument = await this.familyModel.findOne({ _id: dto.familyId, tenantId });
       if (!familyDocument) throw new NotFoundException('Asset Family not found');
 
-      const latestVersion = await this.versionModel
-        .findOne({ familyId })
-        .sort({ versionNumber: -1 }) 
-        .exec();
-        
-      nextVersionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
-    } 
-    else {
-      const newFamily = new this.familyModel({
+      versionNumber = familyDocument.nextVersionNumber;
+      
+      familyDocument.status = AssetStatus.DRAFT; 
+      familyDocument.nextVersionNumber += 1;    
+    } else {
+      versionNumber = 1;
+      familyDocument = new this.familyModel({
         tenantId,
         title: finalTitle,
         tags: finalTags,
-        status: 'DRAFT', 
-        nextVersionNumber: 2,
+        status: AssetStatus.DRAFT,
+        nextVersionNumber: 2, 
         createdBy: actorId,
       });
-      familyDocument = await newFamily.save();
-      familyId = familyDocument._id as string;
     }
 
     const newVersion = new this.versionModel({
-      familyId,
+      familyId: familyDocument._id,
       tenantId,
-      versionNumber: nextVersionNumber,
+      versionNumber: versionNumber,
       minioObjectKey: dto.minioObjectKey,
       originalFilename: dto.originalFilename,
       mimeType: dto.mimeType,
       sizeBytes: dto.sizeBytes,
+      assetType: dto.assetType || 'document',
       uploadedBy: actorId,
       metadata: {}, 
     });
 
     const savedVersion = await newVersion.save();
 
-    if (nextVersionNumber === 1) {
-      familyDocument.activeVersionId = savedVersion._id;
-      await familyDocument.save();
-    }
+    familyDocument.activeVersionId = (savedVersion._id as any).toString();
+    await familyDocument.save();
 
     await this.auditService.logEvent(
       tenantId,
-      familyId,
+      familyDocument._id.toString(),
       actorId,
-      nextVersionNumber === 1 ? AuditAction.ASSET_CREATED : AuditAction.ASSET_UPDATED,
-      { versionNumber: nextVersionNumber, size: dto.sizeBytes }
+      versionNumber === 1 ? AuditAction.ASSET_CREATED : AuditAction.ASSET_UPDATED,
+      { versionNumber, size: dto.sizeBytes }
     );
     
     await this.assetQueue.add('process.media', { 
-      familyId,
+      familyId: familyDocument._id,
       versionId: savedVersion._id, 
       tenantId 
     });
@@ -105,7 +103,7 @@ export class AssetService {
     };
   }
 
-  async findAll(tenantId: string, query: { q?: string; status?: string; page?: number; limit?: number }) {
+  async findAll(tenantId: string, query: { q?: string; status?: string; tags?: string; type?: string; page?: number; limit?: number }) {
     const page = query.page ? Math.max(1, Number(query.page)) : 1;
     const limit = query.limit ? Math.min(50, Math.max(1, Number(query.limit))) : 20;
     const skip = (page - 1) * limit;
@@ -114,6 +112,29 @@ export class AssetService {
     
     if (query.status) {
       filter.status = query.status;
+    }
+
+    if (query.tags) {
+      const tagsArray = query.tags.split(',').map(t => t.trim()).filter(Boolean);
+      if (tagsArray.length > 0) {
+        filter.tags = { $in: tagsArray }; 
+      }
+    }
+
+    if (query.type && query.type !== 'all') {
+      let mimeRegex;
+      
+      if (query.type === 'image') mimeRegex = /^image\//i;
+      else if (query.type === 'video') mimeRegex = /^video\//i;
+      else mimeRegex = /^(application|text)\//i; 
+
+      const matchingVersions = await this.versionModel
+        .find({ tenantId, mimeType: mimeRegex }, 'familyId')
+        .lean()
+        .exec();
+      
+      const familyIds = matchingVersions.map(v => v.familyId);
+      filter._id = { $in: familyIds };
     }
     
     if (query.q) {
@@ -176,6 +197,94 @@ export class AssetService {
     await this.familyModel.deleteOne({ _id: familyId, tenantId });
 
     return { success: true, message: 'Asset family and all versions deleted successfully.' };
+  }
+
+  async addVersionToFamily(
+  tenantId: string, 
+  familyId: string, 
+  actorId: string, 
+  data: { originalFilename: string; minioObjectKey: string; mimeType: string; sizeBytes: number; assetType: string }
+) {
+  const family = await this.familyModel.findOne({ _id: familyId, tenantId });
+  if (!family) throw new NotFoundException('Asset family not found');
+
+  const currentVersion = family.nextVersionNumber;
+
+  const version = new this.versionModel({
+    tenantId,
+    familyId: family._id,
+    versionNumber: currentVersion, 
+    minioObjectKey: data.minioObjectKey,
+    originalFilename: data.originalFilename,
+    mimeType: data.mimeType,
+    sizeBytes: data.sizeBytes,
+    assetType: data.assetType,
+    uploadedBy: actorId,
+    metadata: {},
+  });
+  await version.save();
+
+  family.activeVersionId = (version._id as any).toString();
+
+  family.nextVersionNumber = currentVersion + 1;
+
+  family.status = AssetStatus.DRAFT; 
+  
+  await family.save();
+
+  return family;
+}
+
+async getStats(tenantId: string) {
+    const counts = await this.familyModel.aggregate([
+      { $match: { tenantId } },
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+
+    const totalAssets = await this.familyModel.countDocuments({ tenantId });
+
+    const statsMap = counts.reduce((acc, curr) => {
+      acc[curr._id] = curr.count;
+      return acc;
+    }, {});
+
+    return {
+      totalAssets,
+      inReview: statsMap[AssetStatus.IN_REVIEW] || 0,
+      approved: statsMap[AssetStatus.APPROVED] || 0,
+      published: statsMap[AssetStatus.PUBLISHED] || 0,
+      archived: statsMap[AssetStatus.ARCHIVED] || 0,
+    };
+  }
+
+  async updateMetadata(
+    tenantId: string, 
+    familyId: string, 
+    actorId: string, 
+    dto: { title?: string; tags?: string[]; customMetadata?: Record<string, any> }
+  ) {
+    const family = await this.familyModel.findOne({ _id: familyId, tenantId });
+    if (!family) throw new NotFoundException(`Asset Family ${familyId} not found`);
+
+    if (dto.title !== undefined) family.title = dto.title.trim();
+    if (dto.tags !== undefined) family.tags = dto.tags;
+
+    if (dto.customMetadata !== undefined) {
+      family.customMetadata = dto.customMetadata;
+      family.markModified('customMetadata');
+    }
+
+    await family.save();
+
+    await this.auditService.logEvent(
+      tenantId,
+      familyId,
+      actorId,
+      AuditAction.ASSET_UPDATED, 
+      { updatedFields: Object.keys(dto), newTags: dto.tags, customMetadata: dto.customMetadata }
+    );
+
+    return family;
   }
 
 }

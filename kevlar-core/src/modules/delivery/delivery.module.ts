@@ -5,11 +5,16 @@ import { DeliveryController } from "./delivery.controller";
 import { DeliveryService } from "./delivery.service";
 import { AssetModule } from "../asset/asset.module";
 import { StorageModule } from "../../core/storage/storage.module";
+import { MongooseModule } from "@nestjs/mongoose";
+import { Delivery, DeliverySchema } from "./schemas/delivery.schema";
 
 @Module({
 	imports: [
 		AssetModule,
 		StorageModule,
+		MongooseModule.forFeature([
+			{ name: Delivery.name, schema: DeliverySchema },
+		]),
 		JwtModule.registerAsync({
 			imports: [ConfigModule],
 			inject: [ConfigService],

@@ -32,4 +32,12 @@ export class DeliveryController {
     
     res.redirect(302, actualDownloadUrl);
   }
+
+  @Get()
+  @UseGuards(ClerkAuthGuard, RolesGuard)
+  @Roles('org:admin', 'org:manager', 'org:creator')
+  async getActiveDeliveries(@Req() req: any) {
+    const deliveries = await this.deliveryService.findAllActive(req.user.tenantId);
+    return { data: deliveries };
+  }
 }
