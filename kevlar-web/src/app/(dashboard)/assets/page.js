@@ -94,24 +94,20 @@ function AssetGrid() {
 	const searchParams = useSearchParams();
 	const urlQuery = searchParams.get("q");
 
-	// --- STATE ---
 	const [assets, setAssets] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [isUploading, setIsUploading] = useState(false);
 	const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
-	// Filters
 	const [searchQuery, setSearchQuery] = useState(urlQuery || "");
 	const [statusFilter, setStatusFilter] = useState("all");
 	const [typeFilter, setTypeFilter] = useState("all");
 	const [tagFilter, setTagFilter] = useState("");
 
-	// Sync Header Search
 	useEffect(() => {
 		if (urlQuery !== null) setSearchQuery(urlQuery);
 	}, [urlQuery]);
 
-	// --- DATA FETCHING ---
 	const loadAssets = async () => {
 		setIsLoading(true);
 		try {
@@ -120,7 +116,6 @@ function AssetGrid() {
 				`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1"}/assets`,
 			);
 
-			// Apply all filters to the URL
 			if (searchQuery) url.searchParams.append("q", searchQuery);
 			if (statusFilter !== "all")
 				url.searchParams.append("status", statusFilter);
@@ -147,7 +142,6 @@ function AssetGrid() {
 		return () => clearTimeout(debounce);
 	}, [searchQuery, statusFilter, typeFilter, tagFilter, getToken]);
 
-	// --- ACTIONS ---
 	const handleUploadSubmit = async (e) => {
 		e.preventDefault();
 		setIsUploading(true);
@@ -169,7 +163,6 @@ function AssetGrid() {
 			const apiBase =
 				process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
 
-			// STEP 1: Init - Get the Presigned URL from NestJS
 			const initRes = await fetch(`${apiBase}/assets/upload/init`, {
 				method: "POST",
 				headers: {
@@ -190,10 +183,8 @@ function AssetGrid() {
 					`Backend rejected init: ${errorData.message || errorData.error}`,
 				);
 			}
-			// const response = await initRes.json();
 			const { uploadUrl, objectKey } = await initRes.json();
 
-			// STEP 2: Direct Upload - Push bytes directly to MinIO (Bypassing NestJS)
 			const uploadRes = await fetch(uploadUrl, {
 				method: "PUT",
 				headers: {
@@ -208,7 +199,6 @@ function AssetGrid() {
 				: file.type.startsWith("image/")
 					? "image"
 					: "document";
-			// STEP 3: Complete - Tell NestJS to finalize the DB records
 			const completeRes = await fetch(`${apiBase}/assets/upload/complete`, {
 				method: "POST",
 				headers: {
@@ -229,7 +219,7 @@ function AssetGrid() {
 			if (!completeRes.ok) throw new Error("Failed to finalize asset creation");
 
 			setUploadModalOpen(false);
-			loadAssets(); // Refresh grid to show the new asset
+			loadAssets();
 		} catch (err) {
 			alert(err.message);
 		} finally {
@@ -461,7 +451,6 @@ function AssetGrid() {
 							family.title ||
 							activeVersion.originalFilename ||
 							"Untitled Asset";
-						// Fallback for tags if backend doesn't return them yet
 						const tags = family.tags || [];
 
 						return (

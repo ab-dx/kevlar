@@ -22,7 +22,9 @@ export function Sidebar() {
 				<div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center font-bold text-primary-foreground">
 					K
 				</div>
-				<span className="text-xl font-bold tracking-tight">Kevlar</span>
+				<span className="text-xl font-bold tracking-tight font-sans">
+					Kevlar
+				</span>
 			</div>
 
 			<div className="px-4 mb-6">
