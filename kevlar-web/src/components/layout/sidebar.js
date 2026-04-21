@@ -4,6 +4,7 @@ import {
 	ShieldCheck,
 	History,
 	Settings,
+	BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import { OrganizationSwitcher } from "@clerk/nextjs";
@@ -12,6 +13,7 @@ const navigation = [
 	{ name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
 	{ name: "Assets", href: "/assets", icon: FolderKanban },
 	{ name: "Deliveries", href: "/deliveries", icon: ShieldCheck },
+	{ name: "Analytics", href: "/analytics", icon: BarChart3 },
 	{ name: "Audit Logs", href: "/audit", icon: History },
 ];
 
