@@ -108,16 +108,16 @@ export class AssetService {
     const limit = query.limit ? Math.min(50, Math.max(1, Number(query.limit))) : 20;
     const skip = (page - 1) * limit;
 
-    const filter: any = { tenantId };
+    const baseFilter: any = { tenantId };
     
     if (query.status) {
-      filter.status = query.status;
+      baseFilter.status = query.status;
     }
 
     if (query.tags) {
       const tagsArray = query.tags.split(',').map(t => t.trim()).filter(Boolean);
       if (tagsArray.length > 0) {
-        filter.tags = { $in: tagsArray }; 
+        baseFilter.tags = { $in: tagsArray }; 
       }
     }
 
@@ -134,11 +134,46 @@ export class AssetService {
         .exec();
       
       const familyIds = matchingVersions.map(v => v.familyId);
-      filter._id = { $in: familyIds };
+      baseFilter._id = { $in: familyIds };
     }
+
+    let filter = baseFilter;
     
     if (query.q) {
-      filter.title = { $regex: query.q, $options: 'i' };
+      const searchRegex = new RegExp(query.q, 'i');
+      
+      const metadataFamilies = await this.familyModel
+        .find({
+          tenantId,
+          'customMetadata': { $exists: true, $ne: {} }
+        })
+        .lean()
+        .exec();
+      
+      const matchingMetadataIds = metadataFamilies
+        .filter(family => {
+          const metadata = family.customMetadata as Record<string, unknown>;
+          for (const value of Object.values(metadata)) {
+            if (typeof value === 'string' && searchRegex.test(value)) {
+              return true;
+            }
+          }
+          return false;
+        })
+        .map(f => f._id.toString());
+
+      filter = {
+        $and: [
+          baseFilter,
+          {
+            $or: [
+              { title: searchRegex },
+              { tags: searchRegex },
+              { _id: { $in: matchingMetadataIds } }
+            ]
+          }
+        ]
+      };
     }
 
     const [families, total] = await Promise.all([

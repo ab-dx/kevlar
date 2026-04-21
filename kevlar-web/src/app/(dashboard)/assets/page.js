@@ -14,6 +14,8 @@ import {
 	SlidersHorizontal,
 	Tag,
 	UploadCloud,
+	ChevronLeft,
+	ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -109,9 +111,17 @@ function AssetGrid() {
 	const [typeFilter, setTypeFilter] = useState("all");
 	const [tagFilter, setTagFilter] = useState("");
 
+	const [currentPage, setCurrentPage] = useState(1);
+	const [pageSize, setPageSize] = useState(20);
+	const [paginationMeta, setPaginationMeta] = useState(null);
+
 	useEffect(() => {
 		if (urlQuery !== null) setSearchQuery(urlQuery);
 	}, [urlQuery]);
+
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [searchQuery, statusFilter, typeFilter, tagFilter]);
 
 	const loadAssets = async () => {
 		setIsLoading(true);
@@ -127,12 +137,16 @@ function AssetGrid() {
 			if (typeFilter !== "all") url.searchParams.append("type", typeFilter);
 			if (tagFilter) url.searchParams.append("tags", tagFilter);
 
+			url.searchParams.append("page", currentPage);
+			url.searchParams.append("limit", pageSize);
+
 			const res = await fetch(url, {
 				headers: { Authorization: `Bearer ${token}` },
 			});
 			if (!res.ok) throw new Error("Failed to fetch assets");
 			const json = await res.json();
 			setAssets(json.data || []);
+			setPaginationMeta(json.meta || null);
 		} catch (err) {
 			console.error(err);
 		} finally {
@@ -145,7 +159,7 @@ function AssetGrid() {
 			loadAssets();
 		}, 300);
 		return () => clearTimeout(debounce);
-	}, [searchQuery, statusFilter, typeFilter, tagFilter, getToken]);
+	}, [searchQuery, statusFilter, typeFilter, tagFilter, currentPage, pageSize, getToken]);
 
 	const handleUploadSubmit = async (e) => {
 		e.preventDefault();
@@ -562,6 +576,63 @@ function AssetGrid() {
 					})}
 				</div>
 			)}
+
+			{paginationMeta && (
+				<div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 pb-2">
+					<div className="flex items-center gap-2 text-sm text-muted-foreground">
+						<span>Show</span>
+						<Select
+							value={String(pageSize)}
+							onValueChange={(value) => {
+								setPageSize(Number(value));
+								setCurrentPage(1);
+							}}
+						>
+							<SelectTrigger className="w-[80px] h-8">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="10">10</SelectItem>
+								<SelectItem value="20">20</SelectItem>
+								<SelectItem value="50">50</SelectItem>
+							</SelectContent>
+						</Select>
+						<span>per page</span>
+						<span className="ml-4">
+							({paginationMeta.total} total)
+						</span>
+					</div>
+
+					<div className="flex items-center gap-2">
+						<span className="text-sm text-muted-foreground">
+							Page {paginationMeta.page} of {paginationMeta.totalPages}
+						</span>
+						<Button
+							variant="outline"
+							size="icon"
+							className="h-8 w-8"
+							disabled={paginationMeta.page <= 1}
+							onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+						>
+							<ChevronLeft className="h-4 w-4" />
+						</Button>
+						<Button
+							variant="outline"
+							size="icon"
+							className="h-8 w-8"
+							disabled={paginationMeta.page >= paginationMeta.totalPages}
+							onClick={() =>
+								setCurrentPage((p) =>
+									Math.min(paginationMeta.totalPages, p + 1)
+								)
+							}
+						>
+							<ChevronRight className="h-4 w-4" />
+						</Button>
+					</div>
+				</div>
+			)}
+
 			<ShareLinkDialog
 				open={shareDialogOpen}
 				onOpenChange={setShareDialogOpen}

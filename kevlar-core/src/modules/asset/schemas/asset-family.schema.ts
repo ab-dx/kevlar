@@ -35,3 +35,4 @@ export class AssetFamily extends Document {
 export const AssetFamilySchema = SchemaFactory.createForClass(AssetFamily);
 
 AssetFamilySchema.index({ tenantId: 1, status: 1 });
+AssetFamilySchema.index({ title: 'text', tags: 'text' });
