@@ -11,6 +11,7 @@ import { APP_INTERCEPTOR } from "@nestjs/core";
 import { MongooseModule } from "@nestjs/mongoose";
 import { BullModule } from "@nestjs/bullmq";
 import { AuditModule } from "./modules/audit/audit.module";
+import { AnalyticsModule } from "./modules/analytics/analytics.module";
 
 @Module({
 	imports: [
@@ -24,6 +25,7 @@ import { AuditModule } from "./modules/audit/audit.module";
 		IamModule,
 		AssetModule,
 		DeliveryModule,
+		AnalyticsModule,
 	],
 	controllers: [],
 	providers: [
