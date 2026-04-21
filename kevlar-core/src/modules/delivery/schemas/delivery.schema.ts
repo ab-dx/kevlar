@@ -27,6 +27,9 @@ export class Delivery extends Document {
 
 	@Prop({ default: true })
 	isActive: boolean;
+
+	@Prop()
+	revokedAt: Date;
 }
 
 export const DeliverySchema = SchemaFactory.createForClass(Delivery);

@@ -42,6 +42,7 @@ import {
 	DialogTrigger,
 	DialogFooter,
 } from "@/components/ui/dialog";
+import { ShareLinkDialog } from "@/components/ui/share-link-dialog";
 
 const getIcon = (type) => {
 	if (!type) return <FileText className="w-16 h-16 text-muted-foreground/50" />;
@@ -186,6 +187,9 @@ export default function AssetDetailsPage() {
 	const [isUpdatingMetadata, setIsUpdatingMetadata] = useState(false);
 
 	const [customMetaList, setCustomMetaList] = useState([]);
+
+	const [shareDialogOpen, setShareDialogOpen] = useState(false);
+	const [isGeneratingLink, setIsGeneratingLink] = useState(false);
 
 	const handleOpenEditModal = () => {
 		if (family.customMetadata) {
@@ -370,7 +374,8 @@ export default function AssetDetailsPage() {
 		}
 	};
 
-	const handleDownload = async () => {
+	const generateShareLink = async (expiresInHours) => {
+		setIsGeneratingLink(true);
 		try {
 			const token = await getToken();
 			const apiBase =
@@ -384,7 +389,7 @@ export default function AssetDetailsPage() {
 				},
 				body: JSON.stringify({
 					familyId: params.id,
-					expiresInHours: 1,
+					expiresInHours,
 				}),
 			});
 
@@ -396,8 +401,11 @@ export default function AssetDetailsPage() {
 			const { secureUrl } = await res.json();
 
 			window.open(secureUrl, "_blank");
+			setShareDialogOpen(false);
 		} catch (err) {
 			alert(err.message);
+		} finally {
+			setIsGeneratingLink(false);
 		}
 	};
 
@@ -435,12 +443,17 @@ export default function AssetDetailsPage() {
 						onStatusChange={handleStatusChange}
 						isLoading={isUpdatingStatus}
 					/>
-					<Button
-						onClick={handleDownload}
-						disabled={family.status !== "APPROVED"}
-					>
-						<Download className="mr-2 w-4 h-4" /> Download
-					</Button>
+<ShareLinkDialog
+					open={shareDialogOpen}
+					onOpenChange={setShareDialogOpen}
+					onConfirm={generateShareLink}
+					isLoading={isGeneratingLink}
+					trigger={
+						<Button disabled={family.status !== "APPROVED"}>
+							<Download className="mr-2 w-4 h-4" /> Download
+						</Button>
+					}
+				/>
 					<Button onClick={() => setEditModalOpen(true)}>
 						<Edit className="mr-2 w-4 h-4" /> Edit
 					</Button>

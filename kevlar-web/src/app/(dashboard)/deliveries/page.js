@@ -9,6 +9,7 @@ import {
 	Globe,
 	Loader2,
 	Copy,
+	Trash2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +42,24 @@ export default function DeliveriesPage() {
 		const url = `${process.env.NEXT_PUBLIC_API_URL}/delivery/resolve/${token}`;
 		navigator.clipboard.writeText(url);
 		alert("Secure link copied to clipboard!");
+	};
+
+	const revokeDelivery = async (id) => {
+		if (!confirm("Are you sure you want to revoke this delivery link?")) return;
+		try {
+			const token = await getToken();
+			const res = await fetch(
+				`${process.env.NEXT_PUBLIC_API_URL}/delivery/${id}/revoke`,
+				{
+					method: "PATCH",
+					headers: { Authorization: `Bearer ${token}` },
+				},
+			);
+			if (!res.ok) throw new Error("Failed to revoke delivery");
+			setDeliveries((prev) => prev.filter((d) => d._id !== id));
+		} catch (err) {
+			alert(err.message);
+		}
 	};
 
 	return (
@@ -114,6 +133,14 @@ export default function DeliveriesPage() {
 												onClick={() => copyToClipboard(delivery.token)}
 											>
 												<Copy className="w-4 h-4 mr-2" /> Copy Link
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												className="text-destructive hover:text-destructive"
+												onClick={() => revokeDelivery(delivery._id)}
+											>
+												<Trash2 className="w-4 h-4" />
 											</Button>
 										</td>
 									</tr>

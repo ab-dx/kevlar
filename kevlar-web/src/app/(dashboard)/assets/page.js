@@ -42,6 +42,7 @@ import {
 	DialogTrigger,
 	DialogFooter,
 } from "@/components/ui/dialog";
+import { ShareLinkDialog } from "@/components/ui/share-link-dialog";
 import {
 	Sheet,
 	SheetContent,
@@ -98,6 +99,10 @@ function AssetGrid() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [isUploading, setIsUploading] = useState(false);
 	const [uploadModalOpen, setUploadModalOpen] = useState(false);
+
+	const [shareDialogOpen, setShareDialogOpen] = useState(false);
+	const [shareDialogFamily, setShareDialogFamily] = useState(null);
+	const [isGeneratingLink, setIsGeneratingLink] = useState(false);
 
 	const [searchQuery, setSearchQuery] = useState(urlQuery || "");
 	const [statusFilter, setStatusFilter] = useState("all");
@@ -227,7 +232,14 @@ function AssetGrid() {
 		}
 	};
 
-	const handleDownload = async (familyId) => {
+	const handleDownload = (familyId) => {
+		setShareDialogFamily(familyId);
+		setShareDialogOpen(true);
+	};
+
+	const generateShareLink = async (expiresInHours) => {
+		if (!shareDialogFamily) return;
+		setIsGeneratingLink(true);
 		try {
 			const token = await getToken();
 			const res = await fetch(
@@ -238,14 +250,17 @@ function AssetGrid() {
 						Authorization: `Bearer ${token}`,
 						"Content-Type": "application/json",
 					},
-					body: JSON.stringify({ familyId, expiresInHours: 1 }),
+					body: JSON.stringify({ familyId: shareDialogFamily, expiresInHours }),
 				},
 			);
 			if (!res.ok) throw new Error("Failed to generate download link");
 			const data = await res.json();
 			window.open(data.secureUrl, "_blank");
+			setShareDialogOpen(false);
 		} catch (err) {
 			alert(err.message);
+		} finally {
+			setIsGeneratingLink(false);
 		}
 	};
 
@@ -547,6 +562,12 @@ function AssetGrid() {
 					})}
 				</div>
 			)}
+			<ShareLinkDialog
+				open={shareDialogOpen}
+				onOpenChange={setShareDialogOpen}
+				onConfirm={generateShareLink}
+				isLoading={isGeneratingLink}
+			/>
 		</div>
 	);
 }

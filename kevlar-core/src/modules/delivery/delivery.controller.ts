@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Param, Body, UseGuards, Req, Res } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Param, Body, UseGuards, Req, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { DeliveryService } from './delivery.service';
 import { ClerkAuthGuard } from '../../common/guards/clerk-auth.guard';
@@ -39,5 +39,12 @@ export class DeliveryController {
   async getActiveDeliveries(@Req() req: any) {
     const deliveries = await this.deliveryService.findAllActive(req.user.tenantId);
     return { data: deliveries };
+  }
+
+  @Patch(':id/revoke')
+  @UseGuards(ClerkAuthGuard, RolesGuard)
+  @Roles('org:admin', 'org:creator')
+  async revokeDelivery(@Req() req: any, @Param('id') id: string) {
+    return this.deliveryService.revoke(req.user.tenantId, id);
   }
 }

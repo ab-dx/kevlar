@@ -102,4 +102,15 @@ export class DeliveryService {
       .sort({ createdAt: -1 })
       .exec();
   }
+
+  async revoke(tenantId: string, deliveryId: string) {
+    const delivery = await this.deliveryModel.findOne({ _id: deliveryId, tenantId });
+    if (!delivery) throw new NotFoundException('Delivery not found');
+    
+    delivery.isActive = false;
+    delivery.revokedAt = new Date();
+    await delivery.save();
+    
+    return { success: true };
+  }
 }
