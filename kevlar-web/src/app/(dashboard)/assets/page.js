@@ -459,13 +459,10 @@ function AssetGrid() {
 								className="group overflow-hidden flex flex-col hover:border-primary/50 transition-colors cursor-pointer"
 							>
 								<div
-									className="aspect-video bg-muted flex items-center justify-center relative"
+									className="rounded-full mx-8 p-4 bg-muted flex items-center justify-center relative"
 									onClick={() => router.push(`/assets/${family._id}`)}
 								>
 									{getIcon(mimeType)}
-									<div className="absolute top-2 right-2">
-										{getStatusBadge(family.status)}
-									</div>
 								</div>
 
 								<CardContent className="p-4 flex-1">
@@ -535,11 +532,14 @@ function AssetGrid() {
 									)}
 								</CardContent>
 
-								<CardFooter className="p-4 pt-0 flex items-center justify-between border-t border-border mt-auto">
-									<div className="text-xs font-medium text-muted-foreground flex items-center gap-2">
-										<span className="w-2 h-2 rounded-full bg-primary/50"></span>
-										v{family.nextVersionNumber - 1 || 1} •{" "}
-										{mimeType.split("/")[1]?.toUpperCase() || "FILE"}
+								<CardFooter className="p-4 pt-0 flex items-center justify-between border-t border-border mt-auto ">
+									<div className="text-xs font-medium text-muted-foreground flex items-center gap-2 w-full">
+										<span className="flex-1">
+											<span className="w-2 h-2 rounded-full bg-primary/50"></span>
+											v{family.nextVersionNumber - 1 || 1} •{" "}
+											{mimeType.split("/")[1]?.toUpperCase() || "FILE"}
+										</span>
+										<span>{getStatusBadge(family.status)}</span>
 									</div>
 								</CardFooter>
 							</Card>
