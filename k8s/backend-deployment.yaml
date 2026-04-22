@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    io.kompose.service: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: backend
+  template:
+    metadata:
+      labels:
+        io.kompose.service: backend
+    spec:
+      containers:
+        - name: kevlar-backend
+          image: kevlar-backend-image:latest
+          env:
+            - name: BACKEND_HOST
+              value: "192.172.14.104:3000"
+            - name: MINIO_DEFAULT_BUCKET
+              value: "kevlar-storage"
+            - name: MINIO_ENDPOINT
+              value: "kevlar-minio"
+            - name: MINIO_EXTERNAL_ENDPOINT
+              value: "192.172.14.104"
+            - name: MINIO_PORT
+              value: "9000"
+            - name: MINIO_USE_SSL
+              value: "false"
+            - name: REDIS_HOST
+              value: "kevlar-redis"
+            - name: REDIS_PORT
+              value: "6379"
+
+            - name: CLERK_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kevlar-secrets
+                  key: clerk-publishable-key
+            
+            - name: CLERK_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kevlar-secrets
+                  key: clerk-secret-key
+                  
+            - name: DRM_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kevlar-secrets
+                  key: drm-secret-key
+                  
+            - name: MINIO_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kevlar-secrets
+                  key: minio-access-key
+                  
+            - name: MINIO_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: kevlar-secrets
+                  key: minio-secret-key
+                  
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: kevlar-secrets
+                  key: mongo-uri
+                  
+      restartPolicy: Always
