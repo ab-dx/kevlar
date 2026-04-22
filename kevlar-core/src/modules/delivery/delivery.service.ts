@@ -52,7 +52,7 @@ export class DeliveryService {
     );
 
     return {
-      secureUrl: `http://localhost:3000/api/v1/delivery/resolve/${token}`,
+      secureUrl: `http://${process.env.BACKEND_HOST}/api/v1/delivery/resolve/${token}`,
       expiresInHours
     };
   }

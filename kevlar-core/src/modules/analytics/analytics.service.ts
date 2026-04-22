@@ -213,9 +213,18 @@ export class AnalyticsService {
       },
       { $unwind: '$details' },
       { $match: { 'details.newState': 'APPROVED' } },
-      { $group: { _id: '$actorId', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: limit },
+      {
+        $group: {
+          _id: '$actorId',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { count: -1 },
+      },
+      {
+        $limit: limit,
+      },
     ]);
 
     return topApprovers.map((t) => ({ userId: t._id, count: t.count }));

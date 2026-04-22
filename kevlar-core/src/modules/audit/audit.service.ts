@@ -14,14 +14,14 @@ export class AuditService {
     assetFamilyId: string,
     actorId: string,
     action: AuditAction,
-    metadata: Record<string, any> = {},
+    details: Record<string, any> = {},
   ) {
     const log = new this.auditLogModel({
       tenantId,
       assetFamilyId,
       actorId,
       action,
-      metadata,
+      details,
     });
     return log.save();
   }
