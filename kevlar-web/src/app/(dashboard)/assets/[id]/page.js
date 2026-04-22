@@ -443,18 +443,18 @@ export default function AssetDetailsPage() {
 						onStatusChange={handleStatusChange}
 						isLoading={isUpdatingStatus}
 					/>
-<ShareLinkDialog
-					open={shareDialogOpen}
-					onOpenChange={setShareDialogOpen}
-					onConfirm={generateShareLink}
-					isLoading={isGeneratingLink}
-					trigger={
-						<Button disabled={family.status !== "APPROVED"}>
-							<Download className="mr-2 w-4 h-4" /> Download
-						</Button>
-					}
-				/>
-					<Button onClick={() => setEditModalOpen(true)}>
+					<ShareLinkDialog
+						open={shareDialogOpen}
+						onOpenChange={setShareDialogOpen}
+						onConfirm={generateShareLink}
+						isLoading={isGeneratingLink}
+						trigger={
+							<Button disabled={family.status !== "APPROVED"}>
+								<Download className="mr-2 w-4 h-4" /> Download
+							</Button>
+						}
+					/>
+					<Button onClick={() => handleOpenEditModal()}>
 						<Edit className="mr-2 w-4 h-4" /> Edit
 					</Button>
 				</div>
