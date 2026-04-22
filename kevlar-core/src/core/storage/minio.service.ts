@@ -67,7 +67,7 @@ export class MinioService implements OnModuleInit {
 			// to relay browser to correct host
 			console.log(uploadUrl);
 			uploadUrl = uploadUrl.replace(
-				process.env.MINIO_ENDPOINT || "minio",
+				process.env.MINIO_ENDPOINT || "kevlar-minio",
 				process.env.MINIO_EXTERNAL_ENDPOINT || "localhost",
 			);
 			console.log(uploadUrl);
@@ -80,11 +80,16 @@ export class MinioService implements OnModuleInit {
 
 	async generateDownloadUrl(objectKey: string) {
 		try {
-			return await this.minioClient.presignedGetObject(
+			let downloadUrl = await this.minioClient.presignedGetObject(
 				this.bucketName,
 				objectKey,
 				3600,
 			);
+			downloadUrl = downloadUrl.replace(
+				process.env.MINIO_ENDPOINT || "kevlar-minio",
+				process.env.MINIO_EXTERNAL_ENDPOINT || "localhost",
+			);
+			return downloadUrl;
 		} catch (error) {
 			console.error("MinIO Download URL Generation Failed:", error);
 			throw new InternalServerErrorException(

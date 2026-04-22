@@ -29,12 +29,13 @@ services:
     image: minio/minio:latest
     container_name: kevlar-minio
     restart: unless-stopped
-    ports:
-      - "9000:9000" 
-      - "9001:9001" 
+    # ports:
+      # - "9000:9000" 
+      # - "9001:9001" 
     environment:
       MINIO_ROOT_USER: admin
       MINIO_ROOT_PASSWORD: adminpassword
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
       MINIO_BROWSER_REDIRECT_URL: http://localhost:9001
     command: server /data --console-address ":9001"
     volumes:
@@ -59,34 +60,51 @@ services:
     networks:
       - kevlar-network
 
-  # backend:
-  #   build:
-  #     context: ./kevlar-core 
-  #     dockerfile: Dockerfile
-  #   image: kevlar-backend-image:latest
-  #   container_name: kevlar_backend
-  #   restart: unless-stopped
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - MONGO_URI=mongodb://root:rootpassword@mongodb:27017/kevlar?authSource=admin
-  #     - REDIS_HOST=redis
-  #     - REDIS_PORT=6379
-  #     - MINIO_ENDPOINT=minio
-  #     - MINIO_PORT=9000
-  #     - MINIO_EXTERNAL_ENDPOINT=localhost # to relay to the browser
-  #     - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-admin}
-  #     - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-adminpassword}
-  #     - MINIO_DEFAULT_BUCKET=${MINIO_DEFAULT_BUCKET}
-  #     - MINIO_USE_SSL=${MINIO_USE_SSL}
-  #     - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
-  #   depends_on:
-  #     - mongodb
-  #     - redis
-  #     - minio
-  #   networks:
-  #     - kevlar-network
-  #
+  backend:
+    build:
+      context: ./kevlar-core 
+      dockerfile: Dockerfile
+    image: kevlar-backend-image:latest
+    container_name: kevlar-backend
+    restart: unless-stopped
+    # ports:
+      # - "3000:3000"
+    environment:
+      # - MONGO_URI=mongodb://root:rootpassword@mongodb:27017/kevlar?authSource=admin
+      - MONGO_URI=${MONGO_URI}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_PORT=${MINIO_PORT}
+      - MINIO_EXTERNAL_ENDPOINT=${MINIO_EXTERNAL_ENDPOINT}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-admin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-adminpassword}
+      - MINIO_DEFAULT_BUCKET=${MINIO_DEFAULT_BUCKET}
+      - MINIO_USE_SSL=${MINIO_USE_SSL}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
+      - DRM_SECRET_KEY=${DRM_SECRET_KEY}
+    depends_on:
+      - mongodb
+      - redis
+      - minio
+    networks:
+      - kevlar-network
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    image: kevlar-nginx:latest
+    depends_on:
+      - backend
+      - minio
+    ports:
+      - "9000:9000"
+      - "3000:3000"
+    networks:
+      - kevlar-network
+
   # frontend:
   #   build:
   #     context: ./kevlar-web 
