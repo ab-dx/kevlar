@@ -65,7 +65,7 @@ services:
       context: ./kevlar-core 
       dockerfile: Dockerfile
     image: kevlar-backend-image:latest
-    container_name: kevlar-backend
+    # container_name: kevlar-backend
     restart: unless-stopped
     # ports:
       # - "3000:3000"
