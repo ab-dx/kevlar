@@ -1,17 +1,17 @@
-import { 
-  WebSocketGateway, 
-  WebSocketServer, 
-  OnGatewayConnection, 
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
   ConnectedSocket,
-  MessageBody
+  MessageBody,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
   cors: {
-    origin: '*', 
+    origin: '*',
   },
 })
 export class AssetGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -28,8 +28,8 @@ export class AssetGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('joinTenantRoom')
   handleJoinRoom(
-    @ConnectedSocket() client: Socket, 
-    @MessageBody('tenantId') tenantId: string
+    @ConnectedSocket() client: Socket,
+    @MessageBody('tenantId') tenantId: string,
   ) {
     if (tenantId) {
       client.join(tenantId);

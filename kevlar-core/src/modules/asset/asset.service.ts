@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -9,6 +13,7 @@ import { MinioService } from '../../core/storage/minio.service';
 import { AuditService } from '../audit/audit.service';
 import { AuditAction } from '../audit/schemas/audit-log.schema';
 import { AssetStatus } from './enums/asset-status.enum';
+import { WatermarkService } from './watermark.service';
 
 @Injectable()
 export class AssetService {
@@ -17,27 +22,29 @@ export class AssetService {
     @InjectModel(AssetVersion.name) private versionModel: Model<AssetVersion>,
     private minioService: MinioService,
     @InjectQueue('asset-processing') private assetQueue: Queue,
-    private auditService: AuditService
+    private auditService: AuditService,
+    private watermarkService: WatermarkService,
   ) {}
 
   async initUpload(tenantId: string, filename: string, mimeType: string) {
-    if (!filename || !mimeType) throw new BadRequestException('Filename and mimeType are required');
+    if (!filename || !mimeType)
+      throw new BadRequestException('Filename and mimeType are required');
     return this.minioService.generateUploadUrl(tenantId, filename, mimeType);
   }
 
   async completeUpload(
     tenantId: string,
     actorId: string,
-    dto: { 
-      familyId?: string; 
-      originalFilename: string; 
-      minioObjectKey: string; 
-      mimeType: string; 
-      sizeBytes: number; 
+    dto: {
+      familyId?: string;
+      originalFilename: string;
+      minioObjectKey: string;
+      mimeType: string;
+      sizeBytes: number;
       assetType?: string;
       title?: string;
       tags?: string[];
-    }
+    },
   ) {
     let familyDocument: AssetFamily | null = null;
     let versionNumber: number;
@@ -46,13 +53,17 @@ export class AssetService {
     const finalTags = Array.isArray(dto.tags) ? dto.tags : [];
 
     if (dto.familyId) {
-      familyDocument = await this.familyModel.findOne({ _id: dto.familyId, tenantId });
-      if (!familyDocument) throw new NotFoundException('Asset Family not found');
+      familyDocument = await this.familyModel.findOne({
+        _id: dto.familyId,
+        tenantId,
+      });
+      if (!familyDocument)
+        throw new NotFoundException('Asset Family not found');
 
       versionNumber = familyDocument.nextVersionNumber;
-      
-      familyDocument.status = AssetStatus.DRAFT; 
-      familyDocument.nextVersionNumber += 1;    
+
+      familyDocument.status = AssetStatus.DRAFT;
+      familyDocument.nextVersionNumber += 1;
     } else {
       versionNumber = 1;
       familyDocument = new this.familyModel({
@@ -60,7 +71,7 @@ export class AssetService {
         title: finalTitle,
         tags: finalTags,
         status: AssetStatus.DRAFT,
-        nextVersionNumber: 2, 
+        nextVersionNumber: 2,
         createdBy: actorId,
       });
     }
@@ -75,7 +86,7 @@ export class AssetService {
       sizeBytes: dto.sizeBytes,
       assetType: dto.assetType || 'document',
       uploadedBy: actorId,
-      metadata: {}, 
+      metadata: {},
     });
 
     const savedVersion = await newVersion.save();
@@ -87,71 +98,114 @@ export class AssetService {
       tenantId,
       familyDocument._id.toString(),
       actorId,
-      versionNumber === 1 ? AuditAction.ASSET_CREATED : AuditAction.ASSET_UPDATED,
-      { versionNumber, size: dto.sizeBytes }
+      versionNumber === 1
+        ? AuditAction.ASSET_CREATED
+        : AuditAction.ASSET_UPDATED,
+      { versionNumber, size: dto.sizeBytes },
     );
-    
-    await this.assetQueue.add('process.media', { 
+
+    await this.assetQueue.add('process.media', {
       familyId: familyDocument._id,
-      versionId: savedVersion._id, 
-      tenantId 
+      versionId: savedVersion._id,
+      tenantId,
+    });
+
+    await this.assetQueue.add('semantic.tag', {
+      familyId: familyDocument._id,
+      versionId: savedVersion._id,
+      tenantId,
+      minioObjectKey: dto.minioObjectKey,
+      mimeType: dto.mimeType,
+    }, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+      delay: 3000,
+    });
+
+    await this.assetQueue.add('apply.watermark', {
+      familyId: familyDocument._id,
+      versionId: savedVersion._id,
+      tenantId,
+      actorId,
+      minioObjectKey: dto.minioObjectKey,
+      mimeType: dto.mimeType,
+    }, {
+      delay: 5000,
     });
 
     return {
       family: familyDocument,
-      version: savedVersion
+      version: savedVersion,
     };
   }
 
-  async findAll(tenantId: string, query: { q?: string; status?: string; tags?: string; type?: string; page?: number; limit?: number }) {
+  async findAll(
+    tenantId: string,
+    query: {
+      q?: string;
+      status?: string;
+      tags?: string;
+      type?: string;
+      page?: number;
+      limit?: number;
+    },
+  ) {
     const page = query.page ? Math.max(1, Number(query.page)) : 1;
-    const limit = query.limit ? Math.min(50, Math.max(1, Number(query.limit))) : 20;
+    const limit = query.limit
+      ? Math.min(50, Math.max(1, Number(query.limit)))
+      : 20;
     const skip = (page - 1) * limit;
 
     const baseFilter: any = { tenantId };
-    
+
     if (query.status) {
       baseFilter.status = query.status;
     }
 
     if (query.tags) {
-      const tagsArray = query.tags.split(',').map(t => t.trim()).filter(Boolean);
+      const tagsArray = query.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
       if (tagsArray.length > 0) {
-        baseFilter.tags = { $in: tagsArray }; 
+        baseFilter.tags = { $in: tagsArray };
       }
     }
 
     if (query.type && query.type !== 'all') {
       let mimeRegex;
-      
+
       if (query.type === 'image') mimeRegex = /^image\//i;
       else if (query.type === 'video') mimeRegex = /^video\//i;
-      else mimeRegex = /^(application|text)\//i; 
+      else mimeRegex = /^(application|text)\//i;
 
       const matchingVersions = await this.versionModel
         .find({ tenantId, mimeType: mimeRegex }, 'familyId')
         .lean()
         .exec();
-      
-      const familyIds = matchingVersions.map(v => v.familyId);
+
+      const familyIds = matchingVersions.map((v) => v.familyId);
       baseFilter._id = { $in: familyIds };
     }
 
     let filter = baseFilter;
-    
+
     if (query.q) {
       const searchRegex = new RegExp(query.q, 'i');
-      
+
       const metadataFamilies = await this.familyModel
         .find({
           tenantId,
-          'customMetadata': { $exists: true, $ne: {} }
+          customMetadata: { $exists: true, $ne: {} },
         })
         .lean()
         .exec();
-      
+
       const matchingMetadataIds = metadataFamilies
-        .filter(family => {
+        .filter((family) => {
           const metadata = family.customMetadata as Record<string, unknown>;
           for (const value of Object.values(metadata)) {
             if (typeof value === 'string' && searchRegex.test(value)) {
@@ -160,7 +214,7 @@ export class AssetService {
           }
           return false;
         })
-        .map(f => f._id.toString());
+        .map((f) => f._id.toString());
 
       filter = {
         $and: [
@@ -169,20 +223,20 @@ export class AssetService {
             $or: [
               { title: searchRegex },
               { tags: searchRegex },
-              { _id: { $in: matchingMetadataIds } }
-            ]
-          }
-        ]
+              { _id: { $in: matchingMetadataIds } },
+            ],
+          },
+        ],
       };
     }
 
     const [families, total] = await Promise.all([
       this.familyModel
         .find(filter)
-        .sort({ updatedAt: -1 }) 
+        .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('activeVersionId') 
+        .populate('activeVersionId')
         .lean()
         .exec(),
       this.familyModel.countDocuments(filter),
@@ -217,7 +271,7 @@ export class AssetService {
 
     return {
       ...family,
-      versions, 
+      versions,
     };
   }
 
@@ -231,49 +285,58 @@ export class AssetService {
 
     await this.familyModel.deleteOne({ _id: familyId, tenantId });
 
-    return { success: true, message: 'Asset family and all versions deleted successfully.' };
+    return {
+      success: true,
+      message: 'Asset family and all versions deleted successfully.',
+    };
   }
 
   async addVersionToFamily(
-  tenantId: string, 
-  familyId: string, 
-  actorId: string, 
-  data: { originalFilename: string; minioObjectKey: string; mimeType: string; sizeBytes: number; assetType: string }
-) {
-  const family = await this.familyModel.findOne({ _id: familyId, tenantId });
-  if (!family) throw new NotFoundException('Asset family not found');
+    tenantId: string,
+    familyId: string,
+    actorId: string,
+    data: {
+      originalFilename: string;
+      minioObjectKey: string;
+      mimeType: string;
+      sizeBytes: number;
+      assetType: string;
+    },
+  ) {
+    const family = await this.familyModel.findOne({ _id: familyId, tenantId });
+    if (!family) throw new NotFoundException('Asset family not found');
 
-  const currentVersion = family.nextVersionNumber;
+    const currentVersion = family.nextVersionNumber;
 
-  const version = new this.versionModel({
-    tenantId,
-    familyId: family._id,
-    versionNumber: currentVersion, 
-    minioObjectKey: data.minioObjectKey,
-    originalFilename: data.originalFilename,
-    mimeType: data.mimeType,
-    sizeBytes: data.sizeBytes,
-    assetType: data.assetType,
-    uploadedBy: actorId,
-    metadata: {},
-  });
-  await version.save();
+    const version = new this.versionModel({
+      tenantId,
+      familyId: family._id,
+      versionNumber: currentVersion,
+      minioObjectKey: data.minioObjectKey,
+      originalFilename: data.originalFilename,
+      mimeType: data.mimeType,
+      sizeBytes: data.sizeBytes,
+      assetType: data.assetType,
+      uploadedBy: actorId,
+      metadata: {},
+    });
+    await version.save();
 
-  family.activeVersionId = (version._id as any).toString();
+    family.activeVersionId = (version._id as any).toString();
 
-  family.nextVersionNumber = currentVersion + 1;
+    family.nextVersionNumber = currentVersion + 1;
 
-  family.status = AssetStatus.DRAFT; 
-  
-  await family.save();
+    family.status = AssetStatus.DRAFT;
 
-  return family;
-}
+    await family.save();
 
-async getStats(tenantId: string) {
+    return family;
+  }
+
+  async getStats(tenantId: string) {
     const counts = await this.familyModel.aggregate([
       { $match: { tenantId } },
-      { $group: { _id: '$status', count: { $sum: 1 } } }
+      { $group: { _id: '$status', count: { $sum: 1 } } },
     ]);
 
     const totalAssets = await this.familyModel.countDocuments({ tenantId });
@@ -293,13 +356,18 @@ async getStats(tenantId: string) {
   }
 
   async updateMetadata(
-    tenantId: string, 
-    familyId: string, 
-    actorId: string, 
-    dto: { title?: string; tags?: string[]; customMetadata?: Record<string, any> }
+    tenantId: string,
+    familyId: string,
+    actorId: string,
+    dto: {
+      title?: string;
+      tags?: string[];
+      customMetadata?: Record<string, any>;
+    },
   ) {
     const family = await this.familyModel.findOne({ _id: familyId, tenantId });
-    if (!family) throw new NotFoundException(`Asset Family ${familyId} not found`);
+    if (!family)
+      throw new NotFoundException(`Asset Family ${familyId} not found`);
 
     if (dto.title !== undefined) family.title = dto.title.trim();
     if (dto.tags !== undefined) family.tags = dto.tags;
@@ -315,11 +383,98 @@ async getStats(tenantId: string) {
       tenantId,
       familyId,
       actorId,
-      AuditAction.ASSET_UPDATED, 
-      { updatedFields: Object.keys(dto), newTags: dto.tags, customMetadata: dto.customMetadata }
+      AuditAction.ASSET_UPDATED,
+      {
+        updatedFields: Object.keys(dto),
+        newTags: dto.tags,
+        customMetadata: dto.customMetadata,
+      },
     );
 
     return family;
   }
 
+  async getWatermarkForFamily(tenantId: string, familyId: string) {
+    const family = await this.familyModel.findOne({ _id: familyId, tenantId });
+    if (!family) {
+      throw new NotFoundException(`Asset Family ${familyId} not found`);
+    }
+
+    if (!family.activeVersionId) {
+      return { found: false, message: 'No active version' };
+    }
+
+    const version = await this.versionModel.findOne({
+      _id: family.activeVersionId,
+      tenantId,
+    });
+
+    if (!version) {
+      return { found: false, message: 'Active version not found' };
+    }
+
+    try {
+      const objectBuffer = await this.minioService.getObjectAsBuffer(version.minioObjectKey);
+      const watermark = await this.watermarkService.extractWatermark(objectBuffer, version.mimeType);
+
+      if (watermark) {
+        return {
+          found: true,
+          data: {
+            ...watermark,
+            extractedAt: Date.now(),
+          },
+        };
+      }
+
+      return { found: false, message: 'No watermark found' };
+    } catch (error) {
+      return { found: false, message: error.message };
+    }
+  }
+
+  async verifyWatermarkFromFile(buffer: Buffer, mimeType: string) {
+    try {
+      console.log(`[Verify] DEBUG: verifyWatermarkFromFile called, buffer size: ${buffer.length}, mimeType: ${mimeType}`);
+      const watermark = await this.watermarkService.extractWatermark(buffer, mimeType);
+      console.log(`[Verify] DEBUG: extractWatermark returned:`, watermark);
+
+      if (watermark) {
+        return {
+          found: true,
+          data: {
+            ...watermark,
+            extractedAt: Date.now(),
+          },
+        };
+      }
+
+      return { found: false, message: 'No watermark found in this file' };
+    } catch (error) {
+      console.log(`[Verify] DEBUG: Exception: ${error.message}`);
+      return { found: false, message: error.message };
+    }
+  }
+
+  async getDownloadUrl(tenantId: string, familyId: string, versionId: string, type: 'original' | 'watermarked' = 'watermarked') {
+    const family = await this.familyModel.findOne({ _id: familyId, tenantId });
+    if (!family) {
+      throw new NotFoundException(`Asset Family ${familyId} not found`);
+    }
+
+    const version = await this.versionModel.findOne({ _id: versionId, tenantId, familyId });
+    if (!version) {
+      throw new NotFoundException(`Asset Version ${versionId} not found`);
+    }
+
+    let objectKey: string;
+    if (type === 'original') {
+      objectKey = version.metadata?.originalObjectKey || version.minioObjectKey;
+    } else {
+      objectKey = version.minioObjectKey;
+    }
+
+    const downloadUrl = await this.minioService.generateDownloadUrl(objectKey);
+    return { downloadUrl, versionId, type, objectKey };
+  }
 }

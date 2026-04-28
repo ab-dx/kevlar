@@ -409,6 +409,37 @@ export default function AssetDetailsPage() {
 		}
 	};
 
+	const handleDownload = async (type) => {
+		try {
+			const token = await getToken();
+			const apiBase =
+				process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api/v1";
+
+			const activeVersion = family.versions?.find(
+				(v) => v._id === family.activeVersionId,
+			);
+			if (!activeVersion) {
+				throw new Error("No active version found");
+			}
+
+			const res = await fetch(
+				`${apiBase}/assets/${params.id}/versions/${activeVersion._id}/download?type=${type}`,
+				{
+					headers: { Authorization: `Bearer ${token}` },
+				},
+			);
+
+			if (!res.ok) {
+				throw new Error("Failed to get download URL");
+			}
+
+			const data = await res.json();
+			window.open(data.downloadUrl, "_blank");
+		} catch (err) {
+			alert(err.message);
+		}
+	};
+
 	if (isLoading)
 		return (
 			<div className="flex h-[600px] items-center justify-center">
@@ -443,17 +474,23 @@ export default function AssetDetailsPage() {
 						onStatusChange={handleStatusChange}
 						isLoading={isUpdatingStatus}
 					/>
-					<ShareLinkDialog
-						open={shareDialogOpen}
-						onOpenChange={setShareDialogOpen}
-						onConfirm={generateShareLink}
-						isLoading={isGeneratingLink}
-						trigger={
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
 							<Button disabled={family.status !== "APPROVED"}>
 								<Download className="mr-2 w-4 h-4" /> Download
 							</Button>
-						}
-					/>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem onClick={() => handleDownload('watermarked')}>
+								<ShieldCheck className="mr-2 w-4 h-4" />
+								Download (Watermarked)
+							</DropdownMenuItem>
+							<DropdownMenuItem onClick={() => handleDownload('original')}>
+								<Download className="mr-2 w-4 h-4" />
+								Download (Original)
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 					<Button onClick={() => handleOpenEditModal()}>
 						<Edit className="mr-2 w-4 h-4" /> Edit
 					</Button>
@@ -698,13 +735,25 @@ export default function AssetDetailsPage() {
 											<span className="text-sm font-bold">
 												v{v.versionNumber}
 											</span>
-											{family.activeVersionId === v._id && (
-												<Badge className="text-[10px]">Active</Badge>
-											)}
+											<div className="flex gap-1">
+												{v.metadata?.watermarked && (
+													<Badge className="text-[10px] bg-green-500/20 text-green-600">
+														Watermarked
+													</Badge>
+												)}
+												{family.activeVersionId === v._id && (
+													<Badge className="text-[10px]">Active</Badge>
+												)}
+											</div>
 										</div>
 										<p className="text-[10px] text-muted-foreground mt-1 truncate">
 											{v.originalFilename}
 										</p>
+										{v.metadata?.watermarkTimestamp && (
+											<p className="text-[10px] text-muted-foreground/70 mt-1">
+												Watermarked: {new Date(v.metadata.watermarkTimestamp).toLocaleString()}
+											</p>
+										)}
 									</div>
 								))}
 						</CardContent>
@@ -714,9 +763,9 @@ export default function AssetDetailsPage() {
 						<CardContent className="p-4 flex items-start gap-3">
 							<ShieldCheck className="w-5 h-5 text-blue-500" />
 							<div>
-								<h4 className="text-xs font-bold">DRM Protected</h4>
+								<h4 className="text-xs font-bold">Secure Download</h4>
 								<p className="text-[10px] text-muted-foreground">
-									Secure expiring download link.
+									Downloads include invisible watermark for traceability.
 								</p>
 							</div>
 						</CardContent>

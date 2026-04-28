@@ -10,18 +10,15 @@ export class AuditController {
   constructor(private readonly auditService: AuditService) {}
 
   @Get('assets/:familyId')
-  @Roles('org:admin', 'org:manager') 
-  async getAssetTimeline(
-    @Req() req: any,
-    @Param('familyId') familyId: string
-  ) {
+  @Roles('org:admin', 'org:manager')
+  async getAssetTimeline(@Req() req: any, @Param('familyId') familyId: string) {
     return this.auditService.getTimelineForAsset(req.user.tenantId, familyId);
   }
 
   @Get()
-  @Roles('org:admin', 'org:manager') 
+  @Roles('org:admin', 'org:manager')
   async getAllLogs(@Req() req: any) {
     const logs = await this.auditService.getTenantLogs(req.user.tenantId);
-    return { data: logs }; 
+    return { data: logs };
   }
 }

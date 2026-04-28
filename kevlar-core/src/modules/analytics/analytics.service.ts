@@ -62,10 +62,13 @@ export class AnalyticsService {
       }),
     ]);
 
-    const statusBreakdown = assetsByStatus.reduce((acc, item) => {
-      acc[item._id] = item.count;
-      return acc;
-    }, {} as Record<string, number>);
+    const statusBreakdown = assetsByStatus.reduce(
+      (acc, item) => {
+        acc[item._id] = item.count;
+        return acc;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       totalAssets,
@@ -139,39 +142,52 @@ export class AnalyticsService {
     const dateFilter = this.getDateFilter(period);
     const matchFilter = { tenantId, ...dateFilter };
 
-    const [assetsByCreator, approvalsByUser, versionsByUploader, linksByCreator] =
-      await Promise.all([
-        this.familyModel.aggregate([
-          { $match: matchFilter },
-          { $group: { _id: '$createdBy', count: { $sum: 1 } } },
-        ]),
-        this.auditModel.aggregate([
-          {
-            $match: {
-              ...matchFilter,
-              action: AuditAction.WORKFLOW_STATE_CHANGED,
-            },
+    const [
+      assetsByCreator,
+      approvalsByUser,
+      versionsByUploader,
+      linksByCreator,
+    ] = await Promise.all([
+      this.familyModel.aggregate([
+        { $match: matchFilter },
+        { $group: { _id: '$createdBy', count: { $sum: 1 } } },
+      ]),
+      this.auditModel.aggregate([
+        {
+          $match: {
+            ...matchFilter,
+            action: AuditAction.WORKFLOW_STATE_CHANGED,
           },
-          { $unwind: '$details' },
-          { $match: { 'details.newState': 'APPROVED' } },
-          { $group: { _id: '$actorId', count: { $sum: 1 } } },
-        ]),
-        this.versionModel.aggregate([
-          { $match: matchFilter },
-          { $group: { _id: '$uploadedBy', count: { $sum: 1 } } },
-        ]),
-        this.deliveryModel.aggregate([
-          { $match: matchFilter },
-          { $group: { _id: '$createdBy', count: { $sum: 1 } } },
-        ]),
-      ]);
+        },
+        { $unwind: '$details' },
+        { $match: { 'details.newState': 'APPROVED' } },
+        { $group: { _id: '$actorId', count: { $sum: 1 } } },
+      ]),
+      this.versionModel.aggregate([
+        { $match: matchFilter },
+        { $group: { _id: '$uploadedBy', count: { $sum: 1 } } },
+      ]),
+      this.deliveryModel.aggregate([
+        { $match: matchFilter },
+        { $group: { _id: '$createdBy', count: { $sum: 1 } } },
+      ]),
+    ]);
 
     const employeeMap = new Map<string, any>();
 
-    const addToMap = (data: { _id: string; count: number }[], field: string) => {
+    const addToMap = (
+      data: { _id: string; count: number }[],
+      field: string,
+    ) => {
       data.forEach((item) => {
         if (!employeeMap.has(item._id)) {
-          employeeMap.set(item._id, { userId: item._id, assetsCreated: 0, assetsApproved: 0, versionsUploaded: 0, linksCreated: 0 });
+          employeeMap.set(item._id, {
+            userId: item._id,
+            assetsCreated: 0,
+            assetsApproved: 0,
+            versionsUploaded: 0,
+            linksCreated: 0,
+          });
         }
         employeeMap.get(item._id)[field] = item.count;
       });
@@ -187,9 +203,13 @@ export class AnalyticsService {
     );
   }
 
-  async getTopCreators(tenantId: string, period: string = '30d', limit: number = 10) {
+  async getTopCreators(
+    tenantId: string,
+    period: string = '30d',
+    limit: number = 10,
+  ) {
     const dateFilter = this.getDateFilter(period);
-    
+
     const topCreators = await this.familyModel.aggregate([
       { $match: { tenantId, ...dateFilter } },
       { $group: { _id: '$createdBy', count: { $sum: 1 } } },
@@ -200,7 +220,11 @@ export class AnalyticsService {
     return topCreators.map((t) => ({ userId: t._id, count: t.count }));
   }
 
-  async getTopApprovers(tenantId: string, period: string = '30d', limit: number = 10) {
+  async getTopApprovers(
+    tenantId: string,
+    period: string = '30d',
+    limit: number = 10,
+  ) {
     const dateFilter = this.getDateFilter(period);
 
     const topApprovers = await this.auditModel.aggregate([

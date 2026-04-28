@@ -1,16 +1,33 @@
-import { Controller, Patch, Post, Param, Body, UseGuards, Get, Query, Req, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Patch,
+  Post,
+  Param,
+  Body,
+  UseGuards,
+  Get,
+  Query,
+  Req,
+  Delete,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor, MulterModule } from '@nestjs/platform-express';
 import { AssetService } from './asset.service';
 import { ClerkAuthGuard } from '../../common/guards/clerk-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
-import { WorkflowService } from './workflow.service'
-import { AssetStatus } from './enums/asset-status.enum'
+import { WorkflowService } from './workflow.service';
+import { memoryStorage } from 'multer';
+import { AssetStatus } from './enums/asset-status.enum';
 
 @Controller('api/v1/assets')
-@UseGuards(ClerkAuthGuard, RolesGuard) 
+@UseGuards(ClerkAuthGuard, RolesGuard)
 export class AssetController {
-  constructor(private readonly assetService: AssetService,
-             private readonly workflowService: WorkflowService) {}
+  constructor(
+    private readonly assetService: AssetService,
+    private readonly workflowService: WorkflowService,
+  ) {}
 
   @Get('stats/overview')
   @Roles('org:admin', 'org:manager', 'org:creator')
@@ -19,43 +36,63 @@ export class AssetController {
   }
 
   @Post('upload/init')
-  @Roles('org:admin', 'org:creator') 
+  @Roles('org:admin', 'org:creator')
   async initUpload(
-    @Req() req: any, 
-    @Body() body: { filename: string; mimeType: string }
+    @Req() req: any,
+    @Body() body: { filename: string; mimeType: string },
   ) {
-    return this.assetService.initUpload(req.user.tenantId, body.filename, body.mimeType);
+    return this.assetService.initUpload(
+      req.user.tenantId,
+      body.filename,
+      body.mimeType,
+    );
   }
 
   @Post('upload/complete')
   @Roles('org:admin', 'org:creator')
   async completeUpload(
     @Req() req: any,
-    @Body() body: { originalFilename: string; minioObjectKey: string; mimeType: string; sizeBytes: number; assetType: string;
-    title?: string; 
-    tags?: string[];
-    }
+    @Body()
+    body: {
+      originalFilename: string;
+      minioObjectKey: string;
+      mimeType: string;
+      sizeBytes: number;
+      assetType: string;
+      title?: string;
+      tags?: string[];
+    },
   ) {
-    return this.assetService.completeUpload(req.user.tenantId, req.user.id, body);
+    return this.assetService.completeUpload(
+      req.user.tenantId,
+      req.user.id,
+      body,
+    );
   }
 
   @Post(':id/submit')
-  @Roles('org:admin', 'org:creator') 
-  async submitForReview(
-    @Req() req: any,
-    @Param('id') familyId: string
-  ) {
-    return this.workflowService.submitForReview(req.user.tenantId, familyId, req.user.id);
+  @Roles('org:admin', 'org:creator')
+  async submitForReview(@Req() req: any, @Param('id') familyId: string) {
+    return this.workflowService.submitForReview(
+      req.user.tenantId,
+      familyId,
+      req.user.id,
+    );
   }
 
   @Post(':id/approve')
-  @Roles('org:admin', 'org:manager') 
+  @Roles('org:admin', 'org:manager')
   async approveMedia(
     @Req() req: any,
     @Param('id') familyId: string,
-    @Body('notes') notes: string
+    @Body('notes') notes: string,
   ) {
-    return this.workflowService.approveAsset(req.user.tenantId, familyId, req.user.id, notes);
+    return this.workflowService.approveAsset(
+      req.user.tenantId,
+      familyId,
+      req.user.id,
+      notes,
+    );
   }
 
   @Get()
@@ -69,25 +106,30 @@ export class AssetController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
-    return this.assetService.findAll(req.user.tenantId, { q, status, tags, type, page, limit });
+    return this.assetService.findAll(req.user.tenantId, {
+      q,
+      status,
+      tags,
+      type,
+      page,
+      limit,
+    });
   }
 
   @Get(':id')
   @Roles('org:admin', 'org:manager', 'org:creator')
-  async getAssetDetail(
-    @Req() req: any,
-    @Param('id') familyId: string
-  ) {
+  async getAssetDetail(@Req() req: any, @Param('id') familyId: string) {
     return this.assetService.findOneFamily(req.user.tenantId, familyId);
   }
 
   @Delete(':id')
-  @Roles('org:admin', 'org:manager') 
-  async deleteAssetFamily(
-    @Req() req: any,
-    @Param('id') familyId: string
-  ) {
-    return this.assetService.deleteFamily(req.user.tenantId, familyId, req.user.id);
+  @Roles('org:admin', 'org:manager')
+  async deleteAssetFamily(@Req() req: any, @Param('id') familyId: string) {
+    return this.assetService.deleteFamily(
+      req.user.tenantId,
+      familyId,
+      req.user.id,
+    );
   }
 
   @Post(':id/versions/complete')
@@ -95,17 +137,18 @@ export class AssetController {
   async completeVersionUpload(
     @Req() req: any,
     @Param('id') familyId: string,
-    @Body() body: { 
-      originalFilename: string; 
-      minioObjectKey: string; 
-      mimeType: string; 
-      sizeBytes: number; 
-      assetType: string 
-    }
+    @Body()
+    body: {
+      originalFilename: string;
+      minioObjectKey: string;
+      mimeType: string;
+      sizeBytes: number;
+      assetType: string;
+    },
   ) {
     return this.assetService.completeUpload(req.user.tenantId, req.user.id, {
       ...body,
-      familyId, 
+      familyId,
     });
   }
 
@@ -114,14 +157,14 @@ export class AssetController {
   async updateStatus(
     @Req() req: any,
     @Param('id') familyId: string,
-    @Body() body: { status: AssetStatus; notes?: string }
+    @Body() body: { status: AssetStatus; notes?: string },
   ) {
     return this.workflowService.transitionState(
       req.user.tenantId,
       familyId,
       req.user.id,
       body.status,
-      body.notes
+      body.notes,
     );
   }
 
@@ -130,13 +173,49 @@ export class AssetController {
   async updateMetadata(
     @Req() req: any,
     @Param('id') familyId: string,
-    @Body() body: { title?: string; tags?: string[]; customMetadata?: Record<string, any> }
+    @Body()
+    body: {
+      title?: string;
+      tags?: string[];
+      customMetadata?: Record<string, any>;
+    },
   ) {
     return this.assetService.updateMetadata(
-      req.user.tenantId, 
-      familyId, 
-      req.user.id, 
-      body
+      req.user.tenantId,
+      familyId,
+      req.user.id,
+      body,
+    );
+  }
+
+  @Post('watermark/verify')
+  @Roles('org:admin', 'org:manager', 'org:creator')
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+  }))
+  async verifyWatermark(@UploadedFile() file: any) {
+    if (!file) {
+      return { found: false, message: 'No file uploaded' };
+    }
+    return this.assetService.verifyWatermarkFromFile(
+      file.buffer,
+      file.mimetype,
+    );
+  }
+
+  @Get(':familyId/versions/:versionId/download')
+  @Roles('org:admin', 'org:manager', 'org:creator')
+  async getDownloadUrl(
+    @Req() req: any,
+    @Param('familyId') familyId: string,
+    @Param('versionId') versionId: string,
+    @Query('type') type: 'original' | 'watermarked' = 'watermarked',
+  ) {
+    return this.assetService.getDownloadUrl(
+      req.user.tenantId,
+      familyId,
+      versionId,
+      type,
     );
   }
 }

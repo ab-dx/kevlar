@@ -28,11 +28,11 @@ export class AuditService {
 
   async getTimelineForAsset(tenantId: string, familyId: string) {
     return this.auditLogModel
-      .find({ 
-        tenantId, 
-        assetFamilyId: familyId 
+      .find({
+        tenantId,
+        assetFamilyId: familyId,
       })
-      .sort({ createdAt: -1 }) 
+      .sort({ createdAt: -1 })
       .exec();
   }
 

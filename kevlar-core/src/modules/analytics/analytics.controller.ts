@@ -31,7 +31,11 @@ export class AnalyticsController {
     @Query('period') period: string = '30d',
     @Query('limit') limit: number = 10,
   ) {
-    return this.analyticsService.getTopCreators(req.user.tenantId, period, limit);
+    return this.analyticsService.getTopCreators(
+      req.user.tenantId,
+      period,
+      limit,
+    );
   }
 
   @Get('top-approvers')
@@ -40,6 +44,10 @@ export class AnalyticsController {
     @Query('period') period: string = '30d',
     @Query('limit') limit: number = 10,
   ) {
-    return this.analyticsService.getTopApprovers(req.user.tenantId, period, limit);
+    return this.analyticsService.getTopApprovers(
+      req.user.tenantId,
+      period,
+      limit,
+    );
   }
 }

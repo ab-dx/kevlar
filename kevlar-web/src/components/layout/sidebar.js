@@ -5,6 +5,7 @@ import {
 	History,
 	Settings,
 	BarChart3,
+	Shield,
 } from "lucide-react";
 import Link from "next/link";
 import { OrganizationSwitcher } from "@clerk/nextjs";
@@ -15,6 +16,7 @@ const navigation = [
 	{ name: "Deliveries", href: "/deliveries", icon: ShieldCheck },
 	{ name: "Analytics", href: "/analytics", icon: BarChart3 },
 	{ name: "Audit Logs", href: "/audit", icon: History },
+	{ name: "Watermark", href: "/watermark", icon: Shield },
 ];
 
 export function Sidebar() {

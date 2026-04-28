@@ -1,4 +1,14 @@
-import { Controller, Post, Get, Patch, Param, Body, UseGuards, Req, Res } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Param,
+  Body,
+  UseGuards,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import { DeliveryService } from './delivery.service';
 import { ClerkAuthGuard } from '../../common/guards/clerk-auth.guard';
@@ -15,13 +25,13 @@ export class DeliveryController {
   @Roles('org:admin', 'org:creator')
   async createShareLink(
     @Req() req: any,
-    @Body() body: { familyId: string; expiresInHours?: number }
+    @Body() body: { familyId: string; expiresInHours?: number },
   ) {
     return this.deliveryService.generateSecureLink(
       req.user.tenantId,
       body.familyId,
       req.user.id,
-      body.expiresInHours
+      body.expiresInHours,
     );
   }
 
@@ -29,7 +39,7 @@ export class DeliveryController {
   @Get('resolve/:token')
   async resolveShareLink(@Param('token') token: string, @Res() res: Response) {
     const actualDownloadUrl = await this.deliveryService.resolveLink(token);
-    
+
     res.redirect(302, actualDownloadUrl);
   }
 
@@ -37,7 +47,9 @@ export class DeliveryController {
   @UseGuards(ClerkAuthGuard, RolesGuard)
   @Roles('org:admin', 'org:manager', 'org:creator')
   async getActiveDeliveries(@Req() req: any) {
-    const deliveries = await this.deliveryService.findAllActive(req.user.tenantId);
+    const deliveries = await this.deliveryService.findAllActive(
+      req.user.tenantId,
+    );
     return { data: deliveries };
   }
 
