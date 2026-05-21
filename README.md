@@ -1,6 +1,7 @@
-# Kevlar DAM
+# Kevlar 
+![Kevlar](./assets/logo.png)
 
-Enterprise Digital Asset Management system with multi-tenant architecture, approval workflows, and analytics.
+Enterprise Digital Asset Management system with multi-tenant architecture, approval workflows, digital fingerprints, semantic tagging and analytics.
 
 ## Technical Overview
 
@@ -17,28 +18,83 @@ Enterprise Digital Asset Management system with multi-tenant architecture, appro
 | Reverse Proxy | Nginx |
 
 ### Core Features
+#### Asset Storage
 
-- **Asset Management** — Upload, version, and manage digital assets
-- **Approval Workflow** — FSM-based asset approval (Draft → In Review → Approved → Published)
-- **Secure Sharing** — JWT-signed expiring share links
-- **Analytics** — Dashboard with trends, top creators, and employee metrics
-- **Audit Logging** — Immutable audit trail for compliance
+**(Upload, Version, and Manage)**
+
+* Upload assets to MinIO/S3 compatible object storage
+* Built-in asset lifecycle management
+* Scalable and high-performance
+
+#### Version Control
+
+**(Version History Tracking)**
+
+* Automatically tracks all asset versions
+* Prevents accidental data loss
+* Access detailed version history and timeline
+
+#### Approval Workflow
+
+**(FSM-based Approval)**
+
+* Controlled multi-state lifecycle
+* In Review, Approved, Published stages
+* Configurable review and approval rules
+
+#### Secure Sharing
+
+**(Time-limited, JWT-signed Links)**
+
+* Generate secure JWT-signed links
+* Set specific link expiration times
+* Control access duration and secure external collaboration
+
+#### Analytics
+
+**(Asset & User Insights)**
+
+* Track asset creation, downloads, and approvals
+* Visualize content performance and user engagement
+* Gain insights to optimize workflow bottlenecks
+
+#### Audit Logging
+
+**(Complete Immutable Audit Trail)**
+
+* Log every user action and asset state change
+* Create a complete, tamper-proof record
+* Maintain full compliance documentation and security logs
+
+#### Real-time Updates
+
+**(WebSocket Notifications)**
+
+* Instant notifications for approval state changes
+* Real-time updates across user teams
+* Keep all stakeholders synchronized and projects moving
+
+#### Asset Fingerprinting
+
+**(Origin Verification & Provenance)**
+
+* Embed digital fingerprints directly into the asset's binary data
+* Verify whether scattered or disconnected assets originally belong to the DAM
+* Provide a reliable mechanism for the platform to authenticate asset origin post-distribution
+
+### Workflows
+![Workflow](./assets/workflow1.png)
+![Workflow](./assets/workflow2.png)
+![Workflow](./assets/workflow3.png)
 
 ### Architecture
+![Architecture](./assets/arch.png)
 
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│  Browser   │────▶│  Nginx    │────▶│  Backend  │
-│  (Next.js) │     │ :3000/9000│     │  (NestJS) │
-└─────────────┘     └─────────────┘     └─────┬─────┘
-                                           │
-                        ┌─────────────────┼─────────────────┐
-                        │                 │                 │
-                   ┌────▼────┐      ┌────▼────┐      ┌────▼────┐
-                   │ MongoDB │      │  MinIO  │      │  Redis  │
-                   │ :27017  │      │ :9000  │      │ :6379  │
-                   └─────────┘      └────────┘      └────────┘
-```
+### Showcase
+![Showcase](./assets/showcase1.png)
+![Showcase](./assets/showcase2.png)
+![Showcase](./assets/showcase3.png)
+![Showcase](./assets/showcase4.png)
 
 ## Prerequisites
 
@@ -54,16 +110,59 @@ Copy `.env.example` to `.env` and configure:
 ```bash
 cp .env.example .env
 ```
+You will need to add the following environment variables to your `.env` (or `.env.local`) file.
 
-Required variables:
+```env
+# -----------------------------------------------------------------------------
+# Authentication (Clerk)
+# -----------------------------------------------------------------------------
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+CLERK_PUBLISHABLE_KEY=
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/dashboard
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 
-| Variable | Description |
-|----------|-------------|
-| `CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
-| `CLERK_SECRET_KEY` | Clerk secret key |
-| `DRM_SECRET_KEY` | Secret for JWT signing |
+# -----------------------------------------------------------------------------
+# App & API Configuration
+# -----------------------------------------------------------------------------
+NEXT_PUBLIC_API_URL=http://localhost:3000/api/v1
+BACKEND_HOST=127.0.0.1:3000
 
-Get Clerk keys from [clerk.com](https://clerk.com).
+# -----------------------------------------------------------------------------
+# Databases (MongoDB & Redis)
+# -----------------------------------------------------------------------------
+MONGO_URI=mongodb://root:rootpassword@kevlar-mongo:27017/kevlar?authSource=admin
+REDIS_HOST=kevlar-redis
+REDIS_PORT=6379
+
+# -----------------------------------------------------------------------------
+# Object Storage (MinIO)
+# -----------------------------------------------------------------------------
+MINIO_ENDPOINT=kevlar-minio
+MINIO_PORT=9000
+MINIO_EXTERNAL_ENDPOINT=localhost
+MINIO_ACCESS_KEY=admin
+MINIO_SECRET_KEY=adminpassword
+MINIO_DEFAULT_BUCKET=kevlar-storage
+MINIO_USE_SSL=false
+
+# -----------------------------------------------------------------------------
+# Security & DRM
+# -----------------------------------------------------------------------------
+DRM_SECRET_KEY=super_secure_unpredictable_drm_key_2026
+
+```
+
+#### Configuration Details
+
+| Service | Description |
+| --- | --- |
+| **Clerk** | Obtain your Publishable and Secret keys from your [Clerk Dashboard](https://dashboard.clerk.com/). |
+| **MinIO & Mongo** | Default credentials (`admin`/`adminpassword` & `root`/`rootpassword`) are pre-configured for local Docker setups. Change these before deploying to production. |
+| **DRM** | Ensure `DRM_SECRET_KEY` is replaced with a strong, securely generated string in production environments. |
+
 
 ---
 
@@ -77,16 +176,6 @@ docker-compose up -d --build
 
 # View running containers
 docker-compose ps
-```
-
-### Verify Services
-
-```bash
-# Check backend logs
-docker-compose logs -f backend
-
-# CheckMinIO is ready
-docker-compose logs minio-setup
 ```
 
 ### Access Points
@@ -140,78 +229,6 @@ kubectl apply -f k8s/backend-deployment.yaml
 kubectl apply -f k8s/
 ```
 
-### Check Status
-
-```bash
-kubectl get pods
-kubectl get services
-kubectl logs -f deployment/kevlar-backend
-```
-
-### Delete
-
-```bash
-kubectl delete -f k8s/
-```
-
----
-
-## Frontend (Development)
-
-Run the frontend separately for development:
-
-### Install Dependencies
-
-```bash
-cd kevlar-web
-npm install
-```
-
-### Start Development Server
-
-```bash
-npm run dev
-```
-
-Frontend runs on http://localhost:3001
-
-### Build for Production
-
-```bash
-npm run build
-npm start
-```
-
-### Environment Variables
-
-The frontend requires:
-
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
-| `NEXT_PUBLIC_API_URL` | Backend API URL (default: http://localhost:3000) |
-
-Set these in `.env.local` or your deployment platform.
-
----
-
-## Backend API
-
-### Base URL
-
-```
-http://localhost:3000/api/v1
-```
-
-### Authentication
-
-All endpoints (except public share link resolution) require Clerk JWT:
-
-```bash
-curl -H "Authorization: Bearer <clerk_token>" \
-  http://localhost:3000/api/v1/assets
-```
-
 ### Key Endpoints
 
 | Method | Endpoint | Description |
@@ -228,35 +245,4 @@ curl -H "Authorization: Bearer <clerk_token>" \
 | GET | `/audit` | Audit logs |
 
 ---
-
-## Troubleshooting
-
-### Backend not starting
-
-```bash
-# Check MongoDB is running
-docker-compose logs mongodb
-
-# Check environment variables
-docker-compose exec backend env | grep MONGO_URI
-```
-
-### MinIO bucket not created
-
-```bash
-# Check setup container logs
-docker-compose logs minio-setup
-
-# Manually run setup
-docker-compose exec minio-setup mc mb myminio/kevlar-storage
-```
-
-### Frontend can't connect to API
-
-Ensure `NEXT_PUBLIC_API_URL` points to the backend:
-
-```bash
-# In kevlar-web/.env.local
-NEXT_PUBLIC_API_URL=http://localhost:3000
-```
 
